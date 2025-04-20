@@ -9,27 +9,31 @@ SRC_DIR=src
 BUILD_DIR=build
 INCLUDE_DIR=include
 
-# Files
-OBJS=$(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/uart.o
+# Source files
+C_SRCS := $(wildcard $(SRC_DIR)/*.c)
+S_SRCS := $(wildcard $(SRC_DIR)/*.s)
+
+# Object files
+OBJS := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(C_SRCS)) \
+        $(patsubst $(SRC_DIR)/%.s, $(BUILD_DIR)/%.o, $(S_SRCS))
+
+# Output
 TARGET=$(BUILD_DIR)/kernel.elf
 
 # Default target
 all: $(TARGET)
 
-# Link
+# Linking
 $(TARGET): $(OBJS) linker.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJS) -lgcc
 
-# Compile sources
-$(BUILD_DIR)/boot.o: $(SRC_DIR)/boot.s
+# Compile .c files
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/main.o: $(SRC_DIR)/main.c
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/uart.o: $(SRC_DIR)/uart.c
+# Assemble .s files
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 

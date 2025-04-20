@@ -1,5 +1,8 @@
 #include "uart.h"
 
+struct pl011_t *const uart0 = &PLO11_UART0;
+struct pl011_t *const uart1 = &PLO11_UART1;
+
 volatile uint32_t *get_uart_reg(const struct pl011_t *dev, uint32_t offset)
 {
     const uint64_t addr = dev->base + offset;
@@ -25,16 +28,18 @@ static void wait_tx_complete(const struct pl011_t *dev)
         ;
 }
 
-int uart_init(struct pl011_t *dev, uint64_t base, uint64_t clock)
+int uart0_init(uint32_t baud_rate)
 {
-    dev->base = base;
-    dev->clock = clock;
-    dev->baud_rate = 115200;
-    dev->data_bits = 8;
-    dev->stop_bits = 1;
-    dev->parity = 0;
+    uart0->baud_rate = baud_rate;
 
-    return pl011_reset(dev);
+    return pl011_reset(uart0);
+}
+
+int uart1_init(uint32_t baud_rate)
+{
+    uart1->baud_rate = baud_rate;
+
+    return pl011_reset(uart1);
 }
 
 int pl011_reset(const struct pl011_t *dev)
@@ -61,14 +66,18 @@ int pl011_reset(const struct pl011_t *dev)
     // 8 data bits, 1 stop bit, no parity
     *get_uart_reg(dev, UART_LCRH) = UART_LCRH_WLEN_8_gc | UART_LCRH_STP2;
 
-    // Mask all interrupts by setting corresponding bits to 1
-    *get_uart_reg(dev, UART_IMSC) = 0x7ff;
+    // Enable recieve interrupt
+    *get_uart_reg(dev, UART_ICR) = UART_IMSC_RXIM;
+    *get_uart_reg(dev, UART_IMSC) &= ~UART_IMSC_RXIM;
+
+    // Trigger recieve interrupt at 7/8 FIFO level
+    *get_uart_reg(dev, UART_IFLS) = UART_IFLS_RXIFLSEL_7_8th_gc;
 
     // Disable DMA by setting all bits to 0
     *get_uart_reg(dev, UART_DMACR) = 0x0;
 
-    // Enable transmission.
-    *get_uart_reg(dev, UART_CR) = UART_CR_TXE;
+    // Enable transmission and recieve
+    *get_uart_reg(dev, UART_CR) = UART_CR_TXE | UART_CR_RXE;
 
     // Enable UART
     *get_uart_reg(dev, UART_CR) = UART_CR_UARTEN;
