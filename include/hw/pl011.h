@@ -3,32 +3,32 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct pl011_t
+typedef struct
 {
-    uint64_t base;      // Base address of the PL011 UART
-    uint32_t clock;     // Clock frequency for the UART
-    uint32_t baud_rate; // Baud rate for the UART
-};
+    volatile uint32_t dr;            // Data Register
+    volatile uint32_t rsrecr;        // Receive Status/Error Clear Register
+    volatile uint8_t _reserved1[12]; // Reserved
+    volatile uint32_t fr;            // Flag Register
+    volatile uint32_t _reserved2;    // Reserved
+    volatile uint32_t ilpr;          // IrDA Low-Power Register
+    volatile uint32_t ibrd;          // Integer Baud Rate Register
+    volatile uint32_t fbrd;          // Fractional Baud Rate Register
+    volatile uint32_t lcrh;          // Line Control Register
+    volatile uint32_t cr;            // Control Register
+    volatile uint32_t ifls;          // Interrupt FIFO Level Select Register
+    volatile uint32_t imsc;          // Interrupt Mask Set/Clear Register
+    volatile uint32_t ris;           // Raw Interrupt Status Register
+    volatile uint32_t mis;           // Masked Interrupt Status Register
+    volatile uint32_t icr;           // Interrupt Clear Register
+    volatile uint32_t dmacr;         // DMA Control Register
+} pl011_t;                           // PL011 UART
+
+#define uart0 ((pl011_t *)UART0_BASE) // Base address for PL011 UART0
+#define uart1 ((pl011_t *)UART1_BASE) // Base address for PL011 UART1
 
 #define UART0_BASE 0x16000000 // Base address for PL011 UART
 #define UART1_BASE 0x17000000 // Base address for PL011 UART
 #define PL011_CLOCK 24000000  // Clock frequency for PL011 UART
-
-// Register offsets
-#define UART_DR 0x00    // Data Register
-#define UART_RSR 0x04   // Receive Status Register
-#define UART_ECR 0x04   // Error Clear Register
-#define UART_FR 0x18    // Flag Register
-#define UART_IBRD 0x24  // Integer Baud Rate Register
-#define UART_FBRD 0x28  // Fractional Baud Rate Register
-#define UART_LCRH 0x2C  // Line Control Register
-#define UART_CR 0x30    // Control Register
-#define UART_IFLS 0x34  // Interrupt FIFO Level Select Register
-#define UART_IMSC 0x38  // Interrupt Mask Set/Clear Register
-#define UART_RIS 0x3C   // Raw Interrupt Status Register
-#define UART_MIS 0x40   // Masked Interrupt Status Register
-#define UART_ICR 0x44   // Interrupt Clear Register
-#define UART_DMACR 0x48 // DMA Control Register
 
 // Flag Register bits
 #define UART_FR_TXFF (1 << 5) // Transmit FIFO full
