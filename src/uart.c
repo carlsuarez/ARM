@@ -85,3 +85,15 @@ void uart_puts(pl011_t *dev, const char *s)
     while (*s)
         uart_putc(dev, *s++);
 }
+
+void uart_puthex(pl011_t *dev, uint32_t val)
+{
+    char hex[9];
+    hex[8] = '\0';
+    for (int i = 0; i < 8; i++)
+    {
+        uint32_t nibble = (val >> (28 - i * 4)) & 0xF;
+        hex[i] = (nibble < 10) ? '0' + nibble : 'A' + nibble - 10;
+    }
+    uart_puts(dev, hex);
+}

@@ -1,7 +1,7 @@
 # Toolchain
 CC=arm-none-eabi-gcc
 LD=arm-none-eabi-gcc
-CFLAGS=-Wall -nostdlib -nostartfiles -ffreestanding -O0 -Iinclude
+CFLAGS=-Wall -nostdlib -nostartfiles -ffreestanding -O2 -Iinclude
 LDFLAGS=-T linker.ld -nostdlib -nostartfiles -ffreestanding
 
 # Directories

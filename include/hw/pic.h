@@ -3,21 +3,37 @@
 
 // PIC (Primary Interrupt Controller) register definitions
 #define PIC_BASE 0x14000000
-#define PIC_DISABLE() (*PIC_IRQ_ENABLECLR =                                             \
-                           PIC_TS_PENINT | PIC_ETH_INT | PIC_CPPLDINT | PIC_AACIINT |   \
-                           PIC_MMCIINT1 | PIC_MMCIINT0 | PIC_CLCDCINT | PIC_LM_LLINT1 | \
-                           PIC_LM_LLINT0 | PIC_RTCINT | PIC_TIMERINT2 | PIC_TIMERINT1 | \
-                           PIC_TIMERINT0 | PIC_MOUSEINT | PIC_KBDINT | PIC_UARTINT1 |   \
-                           PIC_UARTINT0 | PIC_SOFTINT)
-#define PIC_IRQ_STATUS ((volatile uint32_t *)(PIC_BASE + 0x00))
-#define PIC_IRQ_RAWSTAT ((volatile uint32_t *)(PIC_BASE + 0x04))
-#define PIC_IRQ_ENABLESET ((volatile uint32_t *)(PIC_BASE + 0x08))
-#define PIC_IRQ_ENABLECLR ((volatile uint32_t *)(PIC_BASE + 0x0C))
-#define PIC_INT_SOFTSET ((volatile uint32_t *)(PIC_BASE + 0x10))
-#define PIC_INT_SOFTCLR ((volatile uint32_t *)(PIC_BASE + 0x14))
-#define PIC_FIQ_STATUS ((volatile uint32_t *)(PIC_BASE + 0x20))
-#define PIC_FIQ_ENABLESET ((volatile uint32_t *)(PIC_BASE + 0x28))
-#define PIC_FIQ_ENABLECLR ((volatile uint32_t *)(PIC_BASE + 0x2C))
+
+typedef struct
+{
+    volatile uint32_t IRQ_STATUS;    // 0x00
+    volatile uint32_t IRQ_RAWSTAT;   // 0x04
+    volatile uint32_t IRQ_ENABLESET; // 0x08
+    volatile uint32_t IRQ_ENABLECLR; // 0x0C
+    volatile uint32_t INT_SOFTSET;   // 0x10
+    volatile uint32_t INT_SOFTCLR;   // 0x14
+    volatile uint32_t _reserved[2];  // 0x18 - 0x1C
+    volatile uint32_t FIQ_STATUS;    // 0x20
+    volatile uint32_t FIQ_RAWSTAT;   // 0x24
+    volatile uint32_t FIQ_ENABLESET; // 0x28
+    volatile uint32_t FIQ_ENABLECLR; // 0x2C
+} pic_t;
+
+#define pic ((pic_t *)PIC_BASE)
+
+#define PIC_IRQ_DISABLE() (pic->IRQ_ENABLECLR =                                             \
+                               PIC_TS_PENINT | PIC_ETH_INT | PIC_CPPLDINT | PIC_AACIINT |   \
+                               PIC_MMCIINT1 | PIC_MMCIINT0 | PIC_CLCDCINT | PIC_LM_LLINT1 | \
+                               PIC_LM_LLINT0 | PIC_RTCINT | PIC_TIMERINT2 | PIC_TIMERINT1 | \
+                               PIC_TIMERINT0 | PIC_MOUSEINT | PIC_KBDINT | PIC_UARTINT1 |   \
+                               PIC_UARTINT0 | PIC_SOFTINT)
+
+#define PIC_FIQ_DISABLE() (pic->FIQ_ENABLECLR =                                             \
+                               PIC_TS_PENINT | PIC_ETH_INT | PIC_CPPLDINT | PIC_AACIINT |   \
+                               PIC_MMCIINT1 | PIC_MMCIINT0 | PIC_CLCDCINT | PIC_LM_LLINT1 | \
+                               PIC_LM_LLINT0 | PIC_RTCINT | PIC_TIMERINT2 | PIC_TIMERINT1 | \
+                               PIC_TIMERINT0 | PIC_MOUSEINT | PIC_KBDINT | PIC_UARTINT1 |   \
+                               PIC_UARTINT0 | PIC_SOFTINT)
 
 // PIC interrupt status bits
 #define PIC_TS_PENINT (1 << 28)

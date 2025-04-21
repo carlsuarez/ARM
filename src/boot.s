@@ -25,7 +25,7 @@ zero_bss:
     blt zero_bss
 
     /* Call main kernel function */
-    bl main
+    bl kernel_main
     /* Infinite loop after main */
     loop:
         b loop
