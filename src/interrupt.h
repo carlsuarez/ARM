@@ -2,7 +2,6 @@
 #define IRQ_HANDLER_H
 
 void irq_handler_c(void);
-void identify_and_clear_source(void);
 #define sei()                                                      \
     __asm__ volatile(                                              \
         "mrs r0, cpsr\n\t"          /* Move CPSR to r0 */          \

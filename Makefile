@@ -1,7 +1,7 @@
 # Toolchain
 CC=arm-none-eabi-gcc
 LD=arm-none-eabi-gcc
-CFLAGS=-Wall -nostdlib -nostartfiles -ffreestanding -O2 -Iinclude
+CFLAGS=-Wall -nostdlib -nostartfiles -ffreestanding -O0 -Iinclude
 LDFLAGS=-T linker.ld -nostdlib -nostartfiles -ffreestanding
 
 # Directories
@@ -39,7 +39,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
 
 # Run in QEMU
 run: $(TARGET)
-	qemu-system-arm -M integratorcp -cpu arm926 -kernel $(TARGET) -nographic -audiodev none,id=snd0
+	qemu-system-arm -M integratorcp -cpu arm926 -kernel $(TARGET) -nographic -serial mon:stdio -audiodev none,id=snd0
 
 # Clean
 clean:

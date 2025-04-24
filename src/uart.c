@@ -43,8 +43,9 @@ static int pl011_reset(pl011_t *dev, uint32_t baud_rate)
     dev->lcrh = UART_LCRH_WLEN_8_gc | UART_LCRH_STP2;
 
     // Enable recieve interrupt
-    dev->icr = UART_IMSC_RXIM;
-    dev->imsc &= ~UART_IMSC_RXIM;
+    dev->icr = 0x03FF;
+    dev->imsc = 0x0; // Clear all interrupts
+    dev->imsc |= UART_IMSC_RXIM;
 
     // Trigger recieve interrupt at 7/8 FIFO level
     dev->ifls = UART_IFLS_RXIFLSEL_7_8th_gc;
