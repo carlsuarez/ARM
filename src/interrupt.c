@@ -3,8 +3,7 @@
 #include "hw/pic.h"
 #include "uart.h"
 #include "hw/timer.h"
-
-static volatile uint8_t i;
+#include "task.h"
 
 void irq_handler_c(void)
 {
@@ -28,10 +27,10 @@ void irq_handler_c(void)
 
     if (pic_status & PIC_TIMERINT1)
     {
+        uart_puts(uart0, "Timer1 Interrupt\n");
         timer1->intclr = 0x1; // Clear the Timer1 interrupt
-        uart_puts(uart0, "0x");
-        uart_puthex(uart0, i++);
-        uart_putc(uart0, '\n');
+
+        scheduler();
     }
 
     if (pic_status & PIC_SOFTINT)

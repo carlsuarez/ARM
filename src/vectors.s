@@ -13,10 +13,20 @@ _vectors:
 
 .section .text
 irq_handler:
+    // Disable IRQs
+    mrs     r0, cpsr
+    orr     r0, r0, #0x80      // Set I bit to disable IRQs
+    msr     cpsr, r0
+
     sub     lr, lr, #4             // Adjust return address
     push    {r0-r12, lr}           // Save all registers and LR
     
     bl      irq_handler_c          // Call C handler directly without mode switches
+    
+    // Enable IRQs again
+    mrs     r0, cpsr
+    bic     r0, r0, #0x80         // Clear I bit to enable IRQs
+    msr     cpsr, r0
     
     pop     {r0-r12, lr}           // Restore registers
     movs    pc, lr                 // Return from interrupt (using MOVS to restore CPSR)
