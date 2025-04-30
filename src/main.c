@@ -6,12 +6,14 @@
 #include "task.h"
 
 // Function prototypes
-void task0(void);
 void task1(void);
+void task2(void);
 
 int kernel_main(void)
 {
-    cli();
+    sei();
+    sef();
+
     PIC_IRQ_CLEAR(); // Disable all interrupts
     PIC_FIQ_CLEAR(); // Disable all interrupts
 
@@ -21,34 +23,38 @@ int kernel_main(void)
 
     pic->IRQ_ENABLESET = PIC_TIMERINT1 | PIC_UARTINT0 | PIC_UARTINT1;
 
-    create_dummy(); // Initialize dummy task
-    task_create(task0);
+    task_init();
     task_create(task1);
+    task_create(task2);
 
-    sei();
+    uart_puts(uart0, "Task 1 address: ");
+    uart_puthex(uart0, (uint32_t)task1);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "Task 2 address: ");
+    uart_puthex(uart0, (uint32_t)task2);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "Trampoline address: ");
+    uart_puthex(uart0, (uint32_t)task_exit_trampoline);
+    uart_putc(uart0, '\n');
+
+    clf();
+    cli();
 
     TIMER1_START();
 
     while (1)
-    {
-        uart_puts(uart0, "Kernel main loop\n");
-        for (volatile uint32_t i = 0; i < 1e9; i++)
-            ;
-    }
-    return 0;
+        ;
 }
 
-void task0(void)
-{
-    uart_puts(uart0, "Task 1 is running\n");
-    for (volatile uint32_t i = 0; i < 1000000; i++)
-        ;
-    task_exit();
-}
 void task1(void)
 {
-    uart_puts(uart0, "Task 2 is running\n");
-    for (volatile uint32_t i = 0; i < 1000000; i++)
+    uart_puts(uart0, "Task 1\n");
+    for (volatile uint32_t i = 0; i < 1e9; i++)
         ;
-    task_exit();
+    task_exit(1);
+}
+void task2(void)
+{
+    uart_puts(uart0, "Task 2 is running\n");
+    task_exit(2);
 }

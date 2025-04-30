@@ -3,76 +3,107 @@
 static struct task tasks[MAX_TASKS];
 static uint8_t current_task = 0;
 static uint8_t total_tasks = 0;
+struct task *current = &tasks[0];
 
-void create_dummy(void)
+static void create_dummy(void)
 {
-    tasks[0].sp = NULL;
-    tasks[0].active = 0;
+    task_create(task_exit_trampoline);
+    tasks[0].active = 0; // Mark dummy task as inactive
+}
+
+void task_init(void)
+{
+    for (int i = 0; i < MAX_TASKS; i++)
+    {
+        memset(tasks[i].stack, 0xDEADBEEF, STACK_SIZE * sizeof(uint32_t));
+        tasks[i].sp = NULL;
+        tasks[i].active = 0;
+    }
+    create_dummy();
 }
 
 void task_create(void (*entry)(void))
 {
     uart_puts(uart0, "Creating task...\n");
     if (total_tasks >= MAX_TASKS)
-    {
-        uart_puts(uart0, "Max tasks reached: ");
-        uart_puthex(uart0, total_tasks);
-        uart_putc(uart0, '\n');
         return;
-    }
 
     struct task *t = &tasks[total_tasks];
 
-    uint32_t *sp = &(t->stack[STACK_SIZE]);
+    // Set stack pointer to top of stack
+    uint32_t *stack = (uint32_t *)(t->stack + STACK_SIZE);
+    stack = (uint32_t *)((uint32_t)stack & ~0x3); // Word-align the stack
 
-    *(--sp) = (uint32_t)task_exit_trampoline; // LR
-    *(--sp) = (uint32_t)entry;                // PC
-    *(--sp) = 0;                              // r11
-    *(--sp) = 0;                              // r10
-    *(--sp) = 0;                              // r9
-    *(--sp) = 0;                              // r8
-    *(--sp) = 0;                              // r7
-    *(--sp) = 0;                              // r6
-    *(--sp) = 0;                              // r5
-    *(--sp) = 0;                              // r4
+    // Fake context: emulate saved registers
 
-    t->sp = sp;
+    // Space for r0-r12
+    for (int i = 0; i <= 12; i++)
+    {
+        *(--stack) = 0; // Push r0-r12 = 0
+    }
+
+    *(--stack) = (uint32_t)entry;                // Entry point
+    *(--stack) = 0x1F;                           // System mode
+    *(--stack) = (uint32_t)task_exit_trampoline; // Link register
+
+    // Save initial SP and CPSR
+    t->sp = stack;
     t->active = 1;
 
     total_tasks++;
-
-    uart_puts(uart0, "Total tasks: ");
-    uart_puthex(uart0, total_tasks);
-    uart_putc(uart0, '\n');
 }
 
-void task_exit()
+void task_exit(uint8_t task_id)
 {
     uart_puts(uart0, "Task exiting...\n");
-    tasks[current_task].active = 0;
-    scheduler();
+    tasks[task_id].active = 0;
+    while (1)
+        ;
 }
 
 void scheduler(void)
 {
     uart_puts(uart0, "Scheduler called\n");
-    uart_puts(uart0, "Current task: ");
-    uart_puthex(uart0, current_task);
+    uart_puts(uart0, "--- Preempted Task Stack Contents ---\n");
+    uart_puts(uart0, "Stack pointer: ");
+    uart_puthex(uart0, (uint32_t)current->sp);
     uart_putc(uart0, '\n');
+    uart_puts(uart0, "CPSR:");
+    uart_puthex(uart0, current->sp[1]);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "Return address: ");
+    uart_puthex(uart0, current->sp[2]);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "Link Register: ");
+    uart_puthex(uart0, current->sp[0]);
+    uart_putc(uart0, '\n');
+    for (int i = 3; i < 15; i++)
+    {
+        uart_puts(uart0, "r");
+        uart_puthex(uart0, i - 3);
+        uart_puts(uart0, ": ");
+        uart_puthex(uart0, current->sp[i]);
+        uart_putc(uart0, '\n');
+    }
+    uart_puts(uart0, "Active? ");
+    uart_puts(uart0, current->active ? "Yes\n" : "No\n");
+    uart_puts(uart0, "------------------------------\n");
 
     if (total_tasks == 0)
     {
+        // No tasks, panic
+        uart_puts(uart0, "No tasks available, entering infinite loop\n");
         while (1)
-            ; // No tasks at all — spin or panic
+            ;
     }
 
+    // Find next active task
     uint8_t next_task = current_task;
     uint8_t found = 0;
 
-    // Search for the next active task (excluding current_task at first)
-    for (uint8_t i = 1; i < total_tasks; i++)
+    for (uint8_t i = 0; i < total_tasks; i++)
     {
-        next_task = (current_task + i) % total_tasks;
+        next_task = (next_task + 1) % total_tasks;
         if (tasks[next_task].active)
         {
             found = 1;
@@ -82,30 +113,43 @@ void scheduler(void)
 
     if (!found)
     {
-        // No other active tasks, but maybe current_task is still alive
-        if (tasks[current_task].active)
+        if (!current->active)
         {
-            // Stick with current
-            return;
-        }
-        else
-        {
-            // No tasks are alive — deadlock or panic
-            uart_puts(uart0, "No active tasks remaining.\n");
+            // No task alive
+            uart_puts(uart0, "No task alive, entering infinite loop\n");
             while (1)
                 ;
         }
+        return; // Continue running current task
     }
 
-    uint8_t old_task = current_task;
+    // Switch to new task
     current_task = next_task;
-    uart_puts(uart0, "Switching from task: ");
-    uart_puthex(uart0, old_task);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "Switching to task: ");
-    uart_puthex(uart0, current_task);
-    uart_putc(uart0, '\n');
+    current = &tasks[current_task];
 
-    sei();
-    context_switch(&tasks[old_task].sp, &tasks[current_task].sp);
+    uart_puts(uart0, "Switching to task: ");
+    uart_putc(uart0, '0' + current_task);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "--- New Task Stack Contents ---\n");
+    uart_puts(uart0, "Stack pointer: ");
+    uart_puthex(uart0, (uint32_t)current->sp);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "CPSR:");
+    uart_puthex(uart0, current->sp[1]);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "Return address: ");
+    uart_puthex(uart0, current->sp[2]);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "Link Register: ");
+    uart_puthex(uart0, current->sp[0]);
+    uart_putc(uart0, '\n');
+    for (int i = 3; i < 15; i++)
+    {
+        uart_puts(uart0, "r");
+        uart_puthex(uart0, i - 3);
+        uart_puts(uart0, ": ");
+        uart_puthex(uart0, current->sp[i]);
+        uart_putc(uart0, '\n');
+    }
+    uart_puts(uart0, "------------------------------\n");
 }

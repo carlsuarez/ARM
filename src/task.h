@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 #include "uart.h"
-#include "interrupt.h"
+#include "memory.h"
 
 #define MAX_TASKS 4
-#define STACK_SIZE 256
+#define STACK_SIZE 512
 
 struct task
 {
@@ -15,11 +15,13 @@ struct task
     uint32_t stack[STACK_SIZE];
 };
 
-extern void context_switch(uint32_t **old_sp, uint32_t **new_sp);
+extern struct task *current;
+
 extern void task_exit_trampoline(void);
 
+void task_init(void);
 void task_create(void (*entry)(void));
-void task_exit();
-void scheduler();
+void task_exit(uint8_t task_id);
+void scheduler(void);
 
 #endif // TASK_H

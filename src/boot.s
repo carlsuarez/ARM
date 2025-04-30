@@ -2,12 +2,9 @@
 .global _start
 
 _start:
-    /* Set up the stack */
-    ldr sp, =_stack_top
-
-    /* Copy .data from ROM (LMA) to RAM (VMA) */
-    ldr r0, =_data_load     /* Source in ROM */
-    ldr r1, =_data_start    /* Destination in RAM */
+    /* Copy .data from LMA (ROM) to VMA (RAM) */
+    ldr r0, =_data_load     /* ROM source */
+    ldr r1, =_data_start    /* RAM destination */
     ldr r2, =_data_end
 copy_data:
     cmp r1, r2
@@ -24,8 +21,32 @@ zero_bss:
     strlt r2, [r0], #4
     blt zero_bss
 
-    /* Call main kernel function */
+    /* Set up IRQ mode and stack */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F        /* Clear mode bits */
+    orr r0, r0, #0x12        /* Set IRQ mode (0b10010) */
+    msr cpsr_c, r0
+
+    ldr sp, =_irq_stack_top  /* IRQ stack grows down from top */
+
+    /* Set up Supervisor mode and stack */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x13        /* SVC mode (0b10011) */
+    msr cpsr_c, r0
+    
+    ldr sp, =_svc_stack_top
+
+    /* Set up System mode and main stack */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x1F        /* System mode (0b11111) */
+    msr cpsr_c, r0
+
+    ldr sp, =_stack_top      /* Regular task stack */
+
+    /* Jump to main kernel entry */
     bl kernel_main
-    /* Infinite loop after main */
-    loop:
-        b loop
+
+halt:
+    b halt

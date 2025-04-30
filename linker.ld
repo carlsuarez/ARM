@@ -1,12 +1,14 @@
 ENTRY(_vectors)
 
 SECTIONS {
+    /* Vector table at address 0x00000000 */
     . = 0x00000000;
 
     .vectors : {
         KEEP(*(.vectors))
     }
 
+    /* Kernel code starts at 0x8000 */
     . = 0x8000;
 
     .text : {
@@ -17,7 +19,6 @@ SECTIONS {
         *(.rodata*)
     }
 
-    /* .data section copied from LMA (ROM) to VMA (RAM) */
     .data : AT(ADDR(.rodata) + SIZEOF(.rodata)) {
         _data_start = .;
         *(.data*)
@@ -30,14 +31,31 @@ SECTIONS {
         _bss_end = .;
     }
 
-    . = ALIGN(4K);
-    .stack : {
-        _stack_top = .;
-        . = . + 0x1000;
-        _stack_bottom = .;
-    }
+    /* Heap (aligned to 4KB, 64 KB total) */
+    . = ALIGN(4096);
+    _heap_start = .;
+    . = . + 0x10000; /* 64 KB */
+    _heap_end = .;
 
-    /* Load address for .data in ROM */
+    /* Kernel Stack (4KB) */
+    . = ALIGN(4096);
+    _stack_top = .;
+    . = . + 0x1000;
+    _stack_bottom = .;
+
+    /* IRQ Stack (1KB) */
+    . = ALIGN(4096);
+    _irq_stack_top = .;
+    . = . + 0x400;
+    _irq_stack_bottom = .;
+
+    /* SVC Stack (1KB) */
+    . = ALIGN(4096);
+    _svc_stack_top = .;
+    . = . + 0x400;
+    _svc_stack_bottom = .;
+
+    /* For data relocation (copying from flash to RAM) */
     _data_load = LOADADDR(.data);
 
     /DISCARD/ : {

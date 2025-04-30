@@ -7,35 +7,40 @@
 
 void irq_handler_c(void)
 {
-    uint32_t pic_status = pic->IRQ_STATUS; // Read the interrupt status from the PIC
+    uart_puts(uart0, "IRQ handler called\n");
+
+    uint32_t pic_status = pic->IRQ_STATUS;
 
     if (pic_status & PIC_UARTINT0)
     {
-        // Handle UART0 interrupt
-        uint32_t uart_mis = uart0->mis; // Read the masked interrupt status from UART0
-
-        // Recieve interrupt
+        // UART0 IRQ
+        uint32_t uart_mis = uart0->mis;
         if (uart_mis & UART_MIS_RXMIS)
         {
-            // Read the received character
             char c = uart0->dr;
-            uart_putc(uart0, c); // Echo the character back
+            uart_putc(uart0, c);
             uart_putc(uart0, '\n');
         }
-        uart0->icr = 0x03FF; // Clear the UART0 interrupt
+        uart0->icr = 0x03FF;
     }
 
     if (pic_status & PIC_TIMERINT1)
     {
-        uart_puts(uart0, "Timer1 Interrupt\n");
-        timer1->intclr = 0x1; // Clear the Timer1 interrupt
+        // Timer IRQ
+        timer1->intclr = 0x1;
+
+        uart_puts(uart0, "Timer interrupt - running scheduler\n");
 
         scheduler();
     }
 
     if (pic_status & PIC_SOFTINT)
     {
-        // Handle software interrupt
         uart_puts(uart0, "Software Interrupt\n");
     }
+
+    uart_puts(uart0, "New SP (IRQ Handler): ");
+    uart_puthex(uart0, (uint32_t)current->sp);
+    uart_putc(uart0, '\n');
+    // IRQs will be re-enabled after we restore context and return
 }
