@@ -5,11 +5,12 @@
 #include "interrupt.h"
 #include "task.h"
 #include "test.h"
+#include "syscall.h"
 
 // Function prototypes
 void task1(void);
 void task2(void);
-extern char _irq_stack_top;
+void task3(void);
 
 int kernel_main(void)
 {
@@ -28,19 +29,7 @@ int kernel_main(void)
     task_init();
     task_create(task1);
     task_create(task2);
-
-    uart_puts(uart0, "Task 1 address: ");
-    uart_puthex(uart0, (uint32_t)task1);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "Task 2 address: ");
-    uart_puthex(uart0, (uint32_t)task2);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "Task exit address: ");
-    uart_puthex(uart0, (uint32_t)task_exit);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "IRQ stack address: ");
-    uart_puthex(uart0, (uint32_t)&_irq_stack_top);
-    uart_putc(uart0, '\n');
+    task_create(task3);
 
     clf();
     cli();
@@ -55,11 +44,19 @@ void task1(void)
 {
     uart_puts(uart0, "Task 1\n");
     dummy();
-    task_exit();
+    syscall(SYS_EXIT, 0, 0, 0, 0);
 }
 
 void task2(void)
 {
     uart_puts(uart0, "Task 2 is running\n");
-    task_exit();
+    syscall(SYS_EXIT, 0, 0, 0, 0);
+}
+
+void task3(void)
+{
+    uart_puts(uart0, "Task 3 is running\n");
+    for (volatile uint32_t i = 0; i < 1e9; i++)
+        ;
+    syscall(SYS_EXIT, 0, 0, 0, 0);
 }

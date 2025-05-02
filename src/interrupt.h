@@ -3,32 +3,56 @@
 
 void irq_handler_c(void);
 
-#define cli()                                                      \
-    __asm__ volatile(                                              \
-        "mrs r0, cpsr\n\t"          /* Move CPSR to r0 */          \
-        "bic r0, r0, #(1 << 7)\n\t" /* Clear I bit (IRQ enable) */ \
-        "msr cpsr_c, r0\n\t"        /* Write back to CPSR */       \
-    )
+#define cli()                           \
+    do                                  \
+    {                                   \
+        unsigned int _tmp;              \
+        asm volatile(                   \
+            "mrs %0, cpsr\n\t"          \
+            "bic %0, %0, #(1 << 7)\n\t" \
+            "msr cpsr_c, %0\n\t"        \
+            : "=r"(_tmp)                \
+            :                           \
+            : "memory");                \
+    } while (0)
 
-#define sei()                                                     \
-    __asm__ volatile(                                             \
-        "mrs r0, cpsr\n\t"          /* Move CPSR to r0 */         \
-        "orr r0, r0, #(1 << 7)\n\t" /* Set I bit (IRQ disable) */ \
-        "msr cpsr_c, r0\n\t"        /* Write back to CPSR */      \
-    )
+#define sei()                           \
+    do                                  \
+    {                                   \
+        unsigned int _tmp;              \
+        asm volatile(                   \
+            "mrs %0, cpsr\n\t"          \
+            "orr %0, %0, #(1 << 7)\n\t" \
+            "msr cpsr_c, %0\n\t"        \
+            : "=r"(_tmp)                \
+            :                           \
+            : "memory");                \
+    } while (0)
 
-#define clf()                                                      \
-    __asm__ volatile(                                              \
-        "mrs r0, cpsr\n\t"          /* Move CPSR to r0 */          \
-        "bic r0, r0, #(1 << 6)\n\t" /* Clear F bit (FIQ enable) */ \
-        "msr cpsr_c, r0\n\t"        /* Write back to CPSR */       \
-    )
+#define clf()                           \
+    do                                  \
+    {                                   \
+        unsigned int _tmp;              \
+        asm volatile(                   \
+            "mrs %0, cpsr\n\t"          \
+            "bic %0, %0, #(1 << 6)\n\t" \
+            "msr cpsr_c, %0\n\t"        \
+            : "=r"(_tmp)                \
+            :                           \
+            : "memory");                \
+    } while (0)
 
-#define sef()                                                     \
-    __asm__ volatile(                                             \
-        "mrs r0, cpsr\n\t"          /* Move CPSR to r0 */         \
-        "orr r0, r0, #(1 << 6)\n\t" /* Set F bit (FIQ disable) */ \
-        "msr cpsr_c, r0\n\t"        /* Write back to CPSR */      \
-    )
+#define sef()                           \
+    do                                  \
+    {                                   \
+        unsigned int _tmp;              \
+        asm volatile(                   \
+            "mrs %0, cpsr\n\t"          \
+            "orr %0, %0, #(1 << 6)\n\t" \
+            "msr cpsr_c, %0\n\t"        \
+            : "=r"(_tmp)                \
+            :                           \
+            : "memory");                \
+    } while (0)
 
 #endif

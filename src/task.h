@@ -3,15 +3,24 @@
 
 #include <stdint.h>
 #include "uart.h"
+#include "interrupt.h"
 #include "memory.h"
 
 #define MAX_TASKS 4
-#define STACK_SIZE 512
+#define STACK_SIZE 256
+
+typedef enum task_state
+{
+    RUNNING,
+    READY,
+    BLOCKED,
+    TERMINATED
+} task_state_t;
 
 struct task
 {
     uint32_t *sp;
-    uint8_t active;
+    task_state_t state;
     uint32_t stack[STACK_SIZE];
 };
 
@@ -19,7 +28,7 @@ extern struct task *current;
 
 void task_init(void);
 void task_create(void (*entry)(void));
-void task_exit(void);
+__attribute__((noreturn)) void task_exit(void);
 void scheduler(void);
 
 #endif // TASK_H
