@@ -13,48 +13,56 @@ _vectors:
 
 .section .text
 .extern current
+.extern irq_handler_c
 
+/*
+ * ARM Interrupt Request (IRQ) Handler
+ * Handles context saving/restoring during interrupts
+ */
 irq_handler:
-    /* Adjust LR_irq to point to next instruction after the interrupted one */
+    /* Adjust LR_irq to point to the interrupted instruction */
     sub     lr, lr, #4
 
-    /* Save general-purpose registers to IRQ stack */
+    push {lr}               /* Save LR_irq */
+
+    /* Save general-purpose registers r0–r12 */
     push    {r0-r12}
 
     /* Save SPSR_irq and LR_irq */
-    mrs     r2, spsr              /* r2 = SPSR_irq */
-    push    {lr, r2}              /* Save LR_irq and SPSR_irq */
+    mrs     r2, spsr           /* r2 = SPSR_irq */
+    push    {r2}              /* Save SPSR_irq */
 
-    /* Disable IRQ */
-    mrs r0, cpsr
-    orr r1, r0, #0x80
-    msr cpsr_c, r1
+    /* Disable IRQs to prevent nested interrupts */
+    mrs     r0, cpsr
+    orr     r0, r0, #0x80
+    msr     cpsr_c, r0
 
-
-    /* Save original mode's LR (user or system mode) */
-    mrs     r5, cpsr              /* r5 = current CPSR (IRQ mode) */
-    mov     r4, r5                /* Preserve IRQ CPSR in r4 */
-
-    and     r3, r2, #0x1F         /* r3 = original mode bits from SPSR */
-    bic     r5, r5, #0x1F         /* Clear mode bits */
-    orr     r5, r5, r3            /* Set mode bits to original mode */
+    /* Save original mode's LR and SP */
+    mrs     r5, cpsr              /* r5 = CPSR (IRQ mode) */
+    mov     r4, r5                /* Keep a copy of IRQ CPSR */
+    and     r3, r2, #0x1F         /* r3 = mode bits from SPSR */
+    bic     r5, r5, #0x1F
+    orr     r5, r5, r3
     msr     cpsr_c, r5            /* Switch to original mode */
 
-    mov     r6, lr                /* Save original mode's LR (lr_user) in r6 */
+    mov     r6, lr                /* r6 = original LR (return address) */
+    mov     r7, sp                /* r7 = original SP */
+
     msr     cpsr_c, r4            /* Switch back to IRQ mode */
 
-    /* Push lr_user to IRQ stack (now total 16 registers saved) */
-    push    {r6}
+    /* Push original LR and SP */
+    push    {r6, r7}              /* LR_orig, SP_orig */
 
     /* === Save context to task's stack === */
     ldr     r0, =current
     ldr     r1, [r0]              /* r1 = current task struct */
     ldr     r3, [r1]              /* r3 = task->sp */
 
-    mov     r0, sp                /* Source = IRQ SP */
-    mov     r2, #(16 * 4)         /* 16 registers: r0–r12, lr_irq, spsr, lr_user */
-    sub     r3, r3, r2            /* Pre-adjust task SP */
-    mov     r7, r3                /* Save new task SP */
+    /* Save IRQ stack context to task's stack (17 registers) */
+    mov     r0, sp
+    mov     r2, #(17 * 4)
+    sub     r3, r3, r2
+    mov     r8, r3                /* Save new task SP */
 
 copy_to_task_stack:
     ldr     r4, [r0], #4
@@ -62,23 +70,21 @@ copy_to_task_stack:
     subs    r2, r2, #4
     bne     copy_to_task_stack
 
-    str     r7, [r1]              /* Update task->sp */
+    str     r8, [r1]              /* Update task->sp */
+    add     sp, sp, #(17 * 4)     /* Clear IRQ stack */
 
-    /* Restore IRQ SP */
-    add     sp, sp, #(16 * 4)
-
-    /* === Call C-level handler === */
+    /* === Call high-level C IRQ handler === */
     bl      irq_handler_c
 
-    /* === Restore task context === */
+restore_context:
+    /* === Restore context from task's stack === */
     ldr     r0, =current
     ldr     r1, [r0]
-    ldr     r7, [r1]              /* r7 = task->sp */
+    ldr     r3, [r1]              /* r3 = saved task SP */
 
-    sub     sp, sp, #(16 * 4)
-    mov     r0, sp                /* Destination = IRQ SP */
-    mov     r3, r7                /* Source = task SP */
-    mov     r2, #(16 * 4)
+    sub     sp, sp, #(17 * 4)
+    mov     r0, sp
+    mov     r2, #(17 * 4)
 
 copy_from_task_stack:
     ldr     r4, [r3], #4
@@ -86,41 +92,35 @@ copy_from_task_stack:
     subs    r2, r2, #4
     bne     copy_from_task_stack
 
-    add     r7, r7, #(16 * 4)
-    str     r7, [r1]              /* Update task->sp */
+    str     r3, [r1]              /* Update task->sp */
 
-    /* === Begin restoring registers === */
-    pop     {r6}                  /* r6 = lr_user */
-    pop     {r2}                  /* r2 = spsr_irq */
-
-    /* Restore SPSR BEFORE switching to user mode */
+    /* === Restore in reverse order === */
+    pop     {r6, r7}              /* r6 = LR_orig, r7 = SP_orig */
+    pop     {r2}                  /* r2 = SPSR */
     msr     spsr_cxsf, r2
 
-    /* Switch to original mode */
-    mrs     r5, cpsr
-    mov     r4, r5
-    and     r3, r2, #0x1F
-    bic     r5, r5, #0x1F
-    orr     r5, r5, r3
-    msr     cpsr_c, r5
+    /* Restore original mode's SP and LR */
+    mrs     r0, cpsr           /* Read current CPSR */
+    bic     r0, r0, #0x1F      /* Clear current mode bits */
+    orr     r0, r0, #0x1F      /* Set System mode (0b11111) */
+    msr     cpsr_c, r0         /* Write back to CPSR */
 
-    /* Enable IRQ */
-    mrs r5, cpsr
-    bic r5, r5, #0x80
-    msr cpsr_c, r5
+    mov     sp, r7
+    mov     lr, r6
+
+    /* Back to IRQ mode */
+    mrs     r0, cpsr           /* Read current CPSR */
+    bic     r0, r0, #0x9F      /* Clear current mode bits and enable IRQ */
+    orr     r0, r0, #0x12      /* Set System mode (0b10010) */
+    msr     cpsr_c, r0         /* Write back to CPSR */
+
+    /* Restore general-purpose registers */
+    pop     {r0-r12}
+
+    /* Restore PC from LR_irq */
+    pop     {pc}                  /* This is lr_irq → pc */
 
 
-    mov     sp, r7                /* Restore original SP */
-    mov     lr, r6                /* Restore original LR (lr_user) */
-
-    /* Switch back to IRQ mode to clean up */
-    msr     cpsr_c, r4
-
-    pop     {lr}                  /* Restore lr_irq */
-    pop     {r0-r12}              /* Restore general-purpose registers */
-
-    /* Return from IRQ */
-    movs    pc, lr
 
 
 // Default dummy handlers

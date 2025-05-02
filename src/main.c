@@ -4,10 +4,12 @@
 #include "timer.h"
 #include "interrupt.h"
 #include "task.h"
+#include "test.h"
 
 // Function prototypes
 void task1(void);
 void task2(void);
+extern char _irq_stack_top;
 
 int kernel_main(void)
 {
@@ -33,8 +35,11 @@ int kernel_main(void)
     uart_puts(uart0, "Task 2 address: ");
     uart_puthex(uart0, (uint32_t)task2);
     uart_putc(uart0, '\n');
-    uart_puts(uart0, "Trampoline address: ");
-    uart_puthex(uart0, (uint32_t)task_exit_trampoline);
+    uart_puts(uart0, "Task exit address: ");
+    uart_puthex(uart0, (uint32_t)task_exit);
+    uart_putc(uart0, '\n');
+    uart_puts(uart0, "IRQ stack address: ");
+    uart_puthex(uart0, (uint32_t)&_irq_stack_top);
     uart_putc(uart0, '\n');
 
     clf();
@@ -49,12 +54,12 @@ int kernel_main(void)
 void task1(void)
 {
     uart_puts(uart0, "Task 1\n");
-    for (volatile uint32_t i = 0; i < 1e9; i++)
-        ;
-    task_exit(1);
+    dummy();
+    task_exit();
 }
+
 void task2(void)
 {
     uart_puts(uart0, "Task 2 is running\n");
-    task_exit(2);
+    task_exit();
 }

@@ -1,13 +1,13 @@
 #include "task.h"
 
-static struct task tasks[MAX_TASKS];
-static uint8_t current_task = 0;
-static uint8_t total_tasks = 0;
+struct task tasks[MAX_TASKS];
+uint8_t current_task = 0;
+uint8_t total_tasks = 0;
 struct task *current = &tasks[0];
 
 static void create_dummy(void)
 {
-    task_create(task_exit_trampoline);
+    task_create(task_exit);
     tasks[0].active = 0; // Mark dummy task as inactive
 }
 
@@ -15,7 +15,9 @@ void task_init(void)
 {
     for (int i = 0; i < MAX_TASKS; i++)
     {
-        memset(tasks[i].stack, 0xDEADBEEF, STACK_SIZE * sizeof(uint32_t));
+        for (int j = 0; j < STACK_SIZE; j++)
+            tasks[i].stack[j] = 0xDEADBEEF;
+
         tasks[i].sp = NULL;
         tasks[i].active = 0;
     }
@@ -36,27 +38,38 @@ void task_create(void (*entry)(void))
 
     // Fake context: emulate saved registers
 
-    // Space for r0-r12
+    /* Remember this as the "original" SP value */
+    uint32_t *original_sp = stack;
+
+    /* Create the simulated IRQ stack frame */
+
+    /* LR_irq (return address for IRQ) */
+    *(--stack) = (uint32_t)entry; /* LR_irq: task entry point */
+
+    /* Initialize r0-r12 (13 registers) */
     for (int i = 0; i <= 12; i++)
     {
-        *(--stack) = 0; // Push r0-r12 = 0
+        *(--stack) = 0; /* r1-r12 = 0 */
     }
 
-    *(--stack) = (uint32_t)entry;                // Entry point
-    *(--stack) = 0x1F;                           // System mode
-    *(--stack) = (uint32_t)task_exit_trampoline; // Link register
+    *(--stack) = 0x1F; /* SPSR: target mode with IRQs enabled */
 
-    // Save initial SP and CPSR
-    t->sp = stack;
-    t->active = 1;
+    /* Original mode LR and SP */
+    *(--stack) = (uint32_t)original_sp; /* SP_orig: original stack pointer */
+
+    /* Simulate the return address for the task */
+    *(--stack) = (uint32_t)task_exit; /* LR_orig */
+
+    t->sp = stack; /* Set task stack pointer */
+    t->active = 1; /* Mark task as active */
 
     total_tasks++;
 }
 
-void task_exit(uint8_t task_id)
+void task_exit()
 {
+    current->active = 0;
     uart_puts(uart0, "Task exiting...\n");
-    tasks[task_id].active = 0;
     while (1)
         ;
 }
@@ -68,19 +81,9 @@ void scheduler(void)
     uart_puts(uart0, "Stack pointer: ");
     uart_puthex(uart0, (uint32_t)current->sp);
     uart_putc(uart0, '\n');
-    uart_puts(uart0, "CPSR:");
-    uart_puthex(uart0, current->sp[1]);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "Return address: ");
-    uart_puthex(uart0, current->sp[2]);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "Link Register: ");
-    uart_puthex(uart0, current->sp[0]);
-    uart_putc(uart0, '\n');
-    for (int i = 3; i < 15; i++)
+    for (int i = 0; i < 16; i++)
     {
-        uart_puts(uart0, "r");
-        uart_puthex(uart0, i - 3);
+        uart_puthex(uart0, i);
         uart_puts(uart0, ": ");
         uart_puthex(uart0, current->sp[i]);
         uart_putc(uart0, '\n');
@@ -134,22 +137,14 @@ void scheduler(void)
     uart_puts(uart0, "Stack pointer: ");
     uart_puthex(uart0, (uint32_t)current->sp);
     uart_putc(uart0, '\n');
-    uart_puts(uart0, "CPSR:");
-    uart_puthex(uart0, current->sp[1]);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "Return address: ");
-    uart_puthex(uart0, current->sp[2]);
-    uart_putc(uart0, '\n');
-    uart_puts(uart0, "Link Register: ");
-    uart_puthex(uart0, current->sp[0]);
-    uart_putc(uart0, '\n');
-    for (int i = 3; i < 15; i++)
+    for (int i = 0; i < 16; i++)
     {
-        uart_puts(uart0, "r");
-        uart_puthex(uart0, i - 3);
+        uart_puthex(uart0, i);
         uart_puts(uart0, ": ");
         uart_puthex(uart0, current->sp[i]);
         uart_putc(uart0, '\n');
     }
+    uart_puts(uart0, "Active? ");
+    uart_puts(uart0, current->active ? "Yes\n" : "No\n");
     uart_puts(uart0, "------------------------------\n");
 }

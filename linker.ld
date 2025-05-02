@@ -39,21 +39,21 @@ SECTIONS {
 
     /* Kernel Stack (4KB) */
     . = ALIGN(4096);
-    _stack_top = .;
-    . = . + 0x1000;
     _stack_bottom = .;
+    . = . + 0x1000;
+    _stack_top = .;
 
     /* IRQ Stack (1KB) */
     . = ALIGN(4096);
-    _irq_stack_top = .;
-    . = . + 0x400;
     _irq_stack_bottom = .;
+    . = . + 0x400;
+    _irq_stack_top = .;
 
     /* SVC Stack (1KB) */
     . = ALIGN(4096);
-    _svc_stack_top = .;
-    . = . + 0x400;
     _svc_stack_bottom = .;
+    . = . + 0x400;
+    _svc_stack_top = .;
 
     /* For data relocation (copying from flash to RAM) */
     _data_load = LOADADDR(.data);

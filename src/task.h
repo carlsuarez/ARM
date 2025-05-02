@@ -17,11 +17,9 @@ struct task
 
 extern struct task *current;
 
-extern void task_exit_trampoline(void);
-
 void task_init(void);
 void task_create(void (*entry)(void));
-void task_exit(uint8_t task_id);
+void task_exit(void);
 void scheduler(void);
 
 #endif // TASK_H
