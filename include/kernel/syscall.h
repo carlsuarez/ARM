@@ -1,8 +1,8 @@
 #ifndef SYSCALL_H
 #define SYSCALL_H
 #include <stdint.h>
-#include "uart.h"
-#include "task.h"
+#include "drivers/uart.h"
+#include "kernel/task.h"
 
 #define SYS_EXIT 1
 #define SYS_WRITE 2

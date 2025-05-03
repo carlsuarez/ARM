@@ -1,11 +1,10 @@
 #include <stdint.h>
-#include "uart.h"
+#include "drivers/uart.h"
 #include "hw/pic.h"
-#include "timer.h"
-#include "interrupt.h"
-#include "task.h"
-#include "test.h"
-#include "syscall.h"
+#include "drivers/timer.h"
+#include "kernel/interrupt.h"
+#include "kernel/task.h"
+#include "kernel/syscall.h"
 
 // Function prototypes
 void task1(void);
@@ -43,7 +42,6 @@ int kernel_main(void)
 void task1(void)
 {
     uart_puts(uart0, "Task 1\n");
-    dummy();
     syscall(SYS_EXIT, 0, 0, 0, 0);
 }
 

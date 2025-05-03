@@ -1,4 +1,4 @@
-#include "memory.h"
+#include "kernel/memory.h"
 
 void *malloc(uint32_t size)
 {

@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include "interrupt.h"
+#include "kernel/interrupt.h"
 #include "hw/pic.h"
-#include "uart.h"
+#include "drivers/uart.h"
 #include "hw/timer.h"
-#include "task.h"
+#include "kernel/task.h"
 
 void irq_handler_c(void)
 {

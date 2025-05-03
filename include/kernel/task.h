@@ -2,9 +2,9 @@
 #define TASK_H
 
 #include <stdint.h>
-#include "uart.h"
-#include "interrupt.h"
-#include "memory.h"
+#include "drivers/uart.h"
+#include "kernel/interrupt.h"
+#include "kernel/memory.h"
 
 #define MAX_TASKS 4
 #define STACK_SIZE 256

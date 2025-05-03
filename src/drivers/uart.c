@@ -1,4 +1,4 @@
-#include "uart.h"
+#include "drivers/uart.h"
 
 static void calculate_divisiors(uint32_t baud_rate, uint32_t *integer, uint32_t *fractional)
 {

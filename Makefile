@@ -7,17 +7,16 @@ LDFLAGS=-T linker.ld -nostdlib -nostartfiles -ffreestanding
 # Directories
 SRC_DIR=src
 BUILD_DIR=build
-INCLUDE_DIR=include
 
-# Source files
-C_SRCS := $(wildcard $(SRC_DIR)/*.c)
-S_SRCS := $(wildcard $(SRC_DIR)/*.s)
+# Find all .c and .s files recursively
+C_SRCS := $(shell find $(SRC_DIR) -name '*.c')
+S_SRCS := $(shell find $(SRC_DIR) -name '*.s')
 
-# Object files
-OBJS := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(C_SRCS)) \
-        $(patsubst $(SRC_DIR)/%.s, $(BUILD_DIR)/%.o, $(S_SRCS))
+# Generate object file paths in build dir, mirroring src structure
+OBJS := $(patsubst $(SRC_DIR)/%, $(BUILD_DIR)/%, \
+         $(patsubst %.c, %.o, $(C_SRCS)) $(patsubst %.s, %.o, $(S_SRCS)))
 
-# Output
+# Target binary
 TARGET=$(BUILD_DIR)/kernel.elf
 
 # Default target
@@ -27,20 +26,20 @@ all: $(TARGET)
 $(TARGET): $(OBJS) linker.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJS) -lgcc
 
-# Compile .c files
+# Compile C sources
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Assemble .s files
+# Assemble .s sources
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Run in QEMU
+# QEMU run
 run: $(TARGET)
 	qemu-system-arm -M integratorcp -cpu arm926 -kernel $(TARGET) -nographic -serial mon:stdio -audiodev none,id=snd0
 
-# Clean
+# Clean build output
 clean:
 	rm -rf $(BUILD_DIR)

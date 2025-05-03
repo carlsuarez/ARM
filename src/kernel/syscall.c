@@ -1,4 +1,4 @@
-#include "syscall.h"
+#include "kernel/syscall.h"
 
 int32_t syscall(int32_t num, int32_t arg0, int32_t arg1, int32_t arg2, int32_t arg3)
 {
