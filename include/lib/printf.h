@@ -7,8 +7,8 @@
 #include <stdint.h>
 #include "lib/syscall.h"
 
-int32_t vsnprintf(int8_t *str, size_t size, const int8_t *fmt, va_list args);
-int32_t snprintf(int8_t *str, size_t size, const int8_t *fmt, ...);
-void printf(const int8_t *fmt, ...);
+int32_t vsnprintf(char *str, size_t size, const char *fmt, va_list args);
+int32_t snprintf(char *str, size_t size, const char *fmt, ...);
+void printf(const char *fmt, ...);
 
 #endif

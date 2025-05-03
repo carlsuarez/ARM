@@ -1,6 +1,6 @@
 #include "lib/printf.h"
 
-static void append_char(int8_t **buf, size_t *remaining, int8_t c)
+static void append_char(char **buf, size_t *remaining, char c)
 {
     if (*remaining > 1) // Need space for null terminator
     {
@@ -10,7 +10,7 @@ static void append_char(int8_t **buf, size_t *remaining, int8_t c)
     }
 }
 
-static void append_string(int8_t **buf, size_t *remaining, const int8_t *s)
+static void append_string(char **buf, size_t *remaining, const char *s)
 {
     if (!s)
         s = "(null)";
@@ -20,10 +20,10 @@ static void append_string(int8_t **buf, size_t *remaining, const int8_t *s)
     }
 }
 
-static void append_number(int8_t **buf, size_t *remaining, int32_t val, int base, bool is_signed)
+static void append_number(char **buf, size_t *remaining, int32_t val, int base, bool is_signed)
 {
-    int8_t temp[32];
-    int8_t *t = temp + sizeof(temp) - 1;
+    char temp[32];
+    char *t = temp + sizeof(temp) - 1;
     *t = '\0';
 
     bool is_neg = is_signed && (val < 0);
@@ -45,15 +45,15 @@ static void append_number(int8_t **buf, size_t *remaining, int32_t val, int base
     append_string(buf, remaining, t);
 }
 
-int32_t vsnprintf(int8_t *str, size_t size, const int8_t *fmt, va_list args)
+int32_t vsnprintf(char *str, size_t size, const char *fmt, va_list args)
 {
     if (!str || size == 0)
         return 0;
 
-    int8_t *buf = str;
+    char *buf = str;
     size_t remaining = size;
 
-    for (const int8_t *p = fmt; *p && remaining > 1; p++)
+    for (const char *p = fmt; *p && remaining > 1; p++)
     {
         if (*p != '%')
         {
@@ -80,11 +80,11 @@ int32_t vsnprintf(int8_t *str, size_t size, const int8_t *fmt, va_list args)
             break;
 
         case 's':
-            append_string(&buf, &remaining, va_arg(args, const int8_t *));
+            append_string(&buf, &remaining, va_arg(args, const char *));
             break;
 
         case 'c':
-            append_char(&buf, &remaining, (int8_t)va_arg(args, int));
+            append_char(&buf, &remaining, (char)va_arg(args, int));
             break;
 
         case '%':
@@ -109,7 +109,7 @@ int32_t vsnprintf(int8_t *str, size_t size, const int8_t *fmt, va_list args)
     return buf - str;
 }
 
-int32_t snprintf(int8_t *str, size_t size, const int8_t *fmt, ...)
+int32_t snprintf(char *str, size_t size, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -118,12 +118,12 @@ int32_t snprintf(int8_t *str, size_t size, const int8_t *fmt, ...)
     return len;
 }
 
-void printf(const int8_t *fmt, ...)
+void printf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
 
-    int8_t buf[256];
+    char buf[256];
     vsnprintf(buf, sizeof(buf), fmt, args);
 
     syscall(SYS_PRINTF, (int32_t)buf, 0, 0, 0);

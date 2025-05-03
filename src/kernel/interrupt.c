@@ -7,8 +7,6 @@
 
 void irq_handler_c(void)
 {
-    uart_puts(uart0, "IRQ handler called\n");
-
     uint32_t pic_status = pic->IRQ_STATUS;
 
     if (pic_status & PIC_UARTINT0)
@@ -29,8 +27,6 @@ void irq_handler_c(void)
         // Timer IRQ
         timer1->intclr = 0x1;
 
-        uart_puts(uart0, "Timer interrupt - running scheduler\n");
-
         scheduler();
     }
 
@@ -39,8 +35,5 @@ void irq_handler_c(void)
         uart_puts(uart0, "Software Interrupt\n");
     }
 
-    uart_puts(uart0, "New SP (IRQ Handler): ");
-    uart_puthex(uart0, (uint32_t)current->sp);
-    uart_putc(uart0, '\n');
     // IRQs will be re-enabled after we restore context and return
 }

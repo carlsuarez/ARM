@@ -1,6 +1,6 @@
 #include "lib/syscall.h"
 
-int32_t svc_handler_c(regs_t *regs)
+void svc_handler_c(regs_t *regs)
 {
     switch (regs->r7)
     {

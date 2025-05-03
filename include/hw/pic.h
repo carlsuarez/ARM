@@ -1,9 +1,9 @@
 #ifndef PIC_H
 #define PIC_H
 
-// PIC (Primary Interrupt Controller) register definitions
-#define PIC_BASE 0x14000000
+#include "defs.h"
 
+// PIC (Primary Interrupt Controller) register definitions
 typedef struct
 {
     volatile uint32_t IRQ_STATUS;    // 0x00
@@ -12,13 +12,14 @@ typedef struct
     volatile uint32_t IRQ_ENABLECLR; // 0x0C
     volatile uint32_t INT_SOFTSET;   // 0x10
     volatile uint32_t INT_SOFTCLR;   // 0x14
-    volatile uint32_t _reserved[2];  // 0x18 - 0x1C
+    RESERVE_U32(2);                  // 0x18 - 0x1C
     volatile uint32_t FIQ_STATUS;    // 0x20
     volatile uint32_t FIQ_RAWSTAT;   // 0x24
     volatile uint32_t FIQ_ENABLESET; // 0x28
     volatile uint32_t FIQ_ENABLECLR; // 0x2C
-} pic_t __attribute__((packed));
+} pic_t;
 
+#define PIC_BASE 0x14000000
 #define pic ((pic_t *)PIC_BASE)
 
 #define PIC_IRQ_CLEAR() (pic->IRQ_ENABLECLR =                                             \

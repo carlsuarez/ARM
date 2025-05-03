@@ -5,9 +5,16 @@ uint8_t current_task = 0;
 uint8_t total_tasks = 0;
 struct task *current = &tasks[0];
 
+__attribute__((noreturn)) static void task_exit_trampoline(void)
+{
+    task_exit(0);
+    while (1)
+        ;
+}
+
 static void create_dummy(void)
 {
-    task_create(task_exit);
+    task_create(task_exit_trampoline);
     tasks[0].state = TERMINATED; // Mark dummy task as inactive
 }
 
@@ -78,7 +85,7 @@ void scheduler(void)
     for (uint8_t i = 0; i < total_tasks; i++)
     {
         next_task = (next_task + 1) % total_tasks;
-        if (tasks[next_task].state == READY || tasks[next_task].state == RUNNING)
+        if (tasks[next_task].state == READY)
         {
             found = 1;
             break;
@@ -96,6 +103,15 @@ void scheduler(void)
         return; // Keep running the current task
     }
 
+    if (current->state != TERMINATED)
+        current->state = READY; // Mark previous task as ready if still alive
+
     current_task = next_task;
     current = &tasks[current_task];
+
+    uart_puts(uart0, "Switching to task: ");
+    uart_putc(uart0, '0' + current_task);
+    uart_puts(uart0, "\n");
+
+    current->state = RUNNING; // Mark new task as running
 }

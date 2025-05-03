@@ -7,6 +7,7 @@
 #include "lib/syscall.h"
 #include "lib/printf.h"
 #include "lib/task.h"
+#include "drivers/mmci.h"
 
 // Function prototypes
 void task1(void);

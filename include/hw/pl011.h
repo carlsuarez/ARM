@@ -2,26 +2,27 @@
 #define PL011_H
 #include <stdint.h>
 #include <stddef.h>
+#include "defs.h"
 
 typedef struct
 {
-    volatile uint32_t dr;            // Data Register
-    volatile uint32_t rsrecr;        // Receive Status/Error Clear Register
-    volatile uint8_t _reserved1[16]; // Reserved
-    volatile uint32_t fr;            // Flag Register
-    volatile uint32_t _reserved2;    // Reserved
-    volatile uint32_t ilpr;          // IrDA Low-Power Register
-    volatile uint32_t ibrd;          // Integer Baud Rate Register
-    volatile uint32_t fbrd;          // Fractional Baud Rate Register
-    volatile uint32_t lcrh;          // Line Control Register
-    volatile uint32_t cr;            // Control Register
-    volatile uint32_t ifls;          // Interrupt FIFO Level Select Register
-    volatile uint32_t imsc;          // Interrupt Mask Set/Clear Register
-    volatile uint32_t ris;           // Raw Interrupt Status Register
-    volatile uint32_t mis;           // Masked Interrupt Status Register
-    volatile uint32_t icr;           // Interrupt Clear Register
-    volatile uint32_t dmacr;         // DMA Control Register
-} pl011_t __attribute__((packed));   // PL011 UART
+    volatile uint32_t dr;     // Data Register
+    volatile uint32_t rsrecr; // Receive Status/Error Clear Register
+    RESERVE_U8(16);           // Reserved
+    volatile uint32_t fr;     // Flag Register
+    volatile uint32_t _;      // Reserved
+    volatile uint32_t ilpr;   // IrDA Low-Power Register
+    volatile uint32_t ibrd;   // Integer Baud Rate Register
+    volatile uint32_t fbrd;   // Fractional Baud Rate Register
+    volatile uint32_t lcrh;   // Line Control Register
+    volatile uint32_t cr;     // Control Register
+    volatile uint32_t ifls;   // Interrupt FIFO Level Select Register
+    volatile uint32_t imsc;   // Interrupt Mask Set/Clear Register
+    volatile uint32_t ris;    // Raw Interrupt Status Register
+    volatile uint32_t mis;    // Masked Interrupt Status Register
+    volatile uint32_t icr;    // Interrupt Clear Register
+    volatile uint32_t dmacr;  // DMA Control Register
+} pl011_t;                    // PL011 UART
 
 #define uart0 ((pl011_t *)UART0_BASE) // Base address for PL011 UART0
 #define uart1 ((pl011_t *)UART1_BASE) // Base address for PL011 UART1

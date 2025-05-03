@@ -11,7 +11,7 @@ typedef struct
    volatile uint32_t ris;     // Raw interrupt status register
    volatile uint32_t mis;     // Masked interrupt status register
    volatile uint32_t bgload;  // Background load register
-} timer_t __attribute__((packed));
+} timer_t;
 
 #define TIMER0_BASE 0x13000000 // Base address for Timer 0
 #define TIMER1_BASE 0x13000100 // Base address for Timer 1

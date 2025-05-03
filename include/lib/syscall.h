@@ -20,6 +20,6 @@ typedef struct regs
 } regs_t;
 
 int32_t syscall(int32_t num, int32_t arg0, int32_t arg1, int32_t arg2, int32_t arg3);
-int32_t svc_handler_c(regs_t *regs);
+void svc_handler_c(regs_t *regs);
 
 #endif
