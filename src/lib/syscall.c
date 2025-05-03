@@ -1,4 +1,4 @@
-#include "kernel/syscall.h"
+#include "lib/syscall.h"
 
 int32_t syscall(int32_t num, int32_t arg0, int32_t arg1, int32_t arg2, int32_t arg3)
 {
@@ -10,24 +10,9 @@ int32_t syscall(int32_t num, int32_t arg0, int32_t arg1, int32_t arg2, int32_t a
 
     asm volatile(
         "svc 0\n"
-        : "+r"(r0) // r0 will hold return value
+        : "+r"(r0)
         : "r"(r1), "r"(r2), "r"(r3), "r"(r7)
         : "memory");
 
     return r0;
-}
-
-int32_t svc_handler_c(regs_t *regs)
-{
-    switch (regs->r7)
-    {
-    case SYS_WRITE:
-        break;
-    case SYS_EXIT:
-        task_exit(); // may not return
-        break;
-    default:
-        regs->r0 = (uint32_t)-1; // Unknown syscall
-        break;
-    }
 }

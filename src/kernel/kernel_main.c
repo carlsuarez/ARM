@@ -4,7 +4,9 @@
 #include "drivers/timer.h"
 #include "kernel/interrupt.h"
 #include "kernel/task.h"
-#include "kernel/syscall.h"
+#include "lib/syscall.h"
+#include "lib/printf.h"
+#include "lib/task.h"
 
 // Function prototypes
 void task1(void);
@@ -41,20 +43,25 @@ int kernel_main(void)
 
 void task1(void)
 {
-    uart_puts(uart0, "Task 1\n");
-    syscall(SYS_EXIT, 0, 0, 0, 0);
+    const char *str = "Task 1 is running\n";
+    printf("%s", str);
+    exit();
 }
 
 void task2(void)
 {
-    uart_puts(uart0, "Task 2 is running\n");
-    syscall(SYS_EXIT, 0, 0, 0, 0);
+    const uint8_t x = 2, y = 3;
+    printf("Task 2 is running\n");
+    printf("x + y = %d\n", x + y);
+    exit();
 }
 
 void task3(void)
 {
-    uart_puts(uart0, "Task 3 is running\n");
+    const double pi = 3.14159265358979323846;
+    printf("Task 3 is running\n");
+    printf("Value of pi: %f\n", pi);
     for (volatile uint32_t i = 0; i < 1e9; i++)
         ;
-    syscall(SYS_EXIT, 0, 0, 0, 0);
+    exit();
 }

@@ -1,5 +1,5 @@
-#ifndef TASK_H
-#define TASK_H
+#ifndef KERNEL_TASK_H
+#define KERNEL_TASK_H
 
 #include <stdint.h>
 #include "drivers/uart.h"
@@ -28,7 +28,7 @@ extern struct task *current;
 
 void task_init(void);
 void task_create(void (*entry)(void));
-__attribute__((noreturn)) void task_exit(void);
+__attribute__((noreturn)) void task_exit(int32_t status);
 void scheduler(void);
 
-#endif // TASK_H
+#endif // KERNEL_TASK_H

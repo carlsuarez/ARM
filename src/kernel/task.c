@@ -52,10 +52,12 @@ void task_create(void (*entry)(void))
     total_tasks++;
 }
 
-__attribute__((noreturn)) void task_exit()
+__attribute__((noreturn)) void task_exit(int32_t status)
 {
     current->state = TERMINATED;
-    uart_puts(uart0, "Task exiting...\n");
+    uart_puts(uart0, "Task exiting with exit code: ");
+    uart_puthex(uart0, status);
+    uart_puts(uart0, "\n");
     cli(); // Enable interrupts
     while (1)
         ;
