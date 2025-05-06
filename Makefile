@@ -8,6 +8,9 @@ LDFLAGS=-T linker.ld -nostdlib -nostartfiles -ffreestanding
 SRC_DIR=src
 BUILD_DIR=build
 
+# Files
+IMG=$(BUILD_DIR)/sdcard.img
+
 # Find all .c and .s files recursively
 C_SRCS := $(shell find $(SRC_DIR) -name '*.c')
 S_SRCS := $(shell find $(SRC_DIR) -name '*.s')
@@ -20,7 +23,7 @@ OBJS := $(patsubst $(SRC_DIR)/%, $(BUILD_DIR)/%, \
 TARGET=$(BUILD_DIR)/kernel.elf
 
 # Default target
-all: $(TARGET)
+all: $(TARGET) $(IMG)
 
 # Linking
 $(TARGET): $(OBJS) linker.ld
@@ -36,9 +39,15 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Make SD card image
+$(IMG):
+	@mkdir -p $(BUILD_DIR)
+	dd if=/dev/zero of=$@ bs=1M count=64
+	mkfs.vfat $@
+
 # QEMU run
-run: $(TARGET)
-	qemu-system-arm -M integratorcp -cpu arm926 -kernel $(TARGET) -nographic -serial mon:stdio -audiodev none,id=snd0
+run: all
+	qemu-system-arm -M integratorcp -cpu arm926 -kernel $(TARGET) -sd $(IMG) -nographic -serial mon:stdio -audiodev none,id=snd0
 
 # Clean build output
 clean:

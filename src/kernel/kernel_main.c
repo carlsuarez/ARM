@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "drivers/uart.h"
+#include "kernel/printk.h"
 #include "hw/pic.h"
 #include "drivers/timer.h"
 #include "kernel/interrupt.h"
@@ -24,7 +24,7 @@ int kernel_main(void)
 
     uart0_init(115200); // Initialize UART with 115200 baud rate, 2 stop bits, 8 data bits, no parity
     timer1_init(1e6, TIMER_MODE_PERIODIC, TIMER_IE, TIMER_PRESCALE_NONE_gc, TIMER_SIZE_32, 0);
-    uart_puts(uart0, "Kernel main started\n");
+    printk("Kernel main started\n");
 
     pic->IRQ_ENABLESET = PIC_TIMERINT1 | PIC_UARTINT0 | PIC_UARTINT1;
 
@@ -33,10 +33,22 @@ int kernel_main(void)
     task_create(task2);
     task_create(task3);
 
+    mmci_card_init();
+
+    uint8_t buff[512];
+    sd_read_block(0, buff);
+
+    for (int i = 0; i < 512; i++)
+    {
+        printf("%x ", buff[i]);
+        if ((i + 1) % 16 == 0)
+            printf("\n");
+    }
+
     clf();
     cli();
 
-    TIMER1_START();
+    // TIMER1_START();
 
     while (1)
         ;
