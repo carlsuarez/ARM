@@ -3,11 +3,13 @@
 
 #include "defs.h"
 #include <stdint.h>
+#include <stddef.h>
 
 #define DIR_ENTRY_SIZE 32
 #define ENTRIES_PER_SECTOR (SECTOR_SIZE / DIR_ENTRY_SIZE)
 #define FAT32_EOC ((uint32_t)0x0FFFFFF8)
 #define ENTRY_UNUSED 0xE5
+#define MAX_OPEN_FILES 3
 
 struct fat32_info
 {
@@ -50,6 +52,14 @@ typedef struct
     uint32_t file_size;
 } __attribute__((packed)) fat32_dir_entry_t;
 
+typedef struct
+{
+    fat32_dir_entry_t entry;
+    uint32_t current_cluster;
+    uint32_t position;
+    uint8_t in_use;
+} fat32_file_t;
+
 /**
  * @brief Initializes the FAT32 file system by reading the boot sector and extracting relevant information.
  *
@@ -59,14 +69,9 @@ typedef struct
 int8_t fat32_init(uint32_t partition_lba);
 
 /**
- * @brief Reads a file from the FAT32 file system given its path.
- *
- * @param path The absolute path of the file to read.
- * @param buf The buffer to store the file contents.
- * @param size The number of bytes to read.
- * @return uint8_t Returns 0 on success, or a negative value on failure.
+ * @brief
  */
-int8_t fat32_read_file(const char *path, uint8_t *buf, uint32_t size);
+int8_t open(const char *path);
 
 /**
  * @brief Reads and prints the entries in the root directory of the FAT32 file system.
@@ -75,5 +80,30 @@ int8_t fat32_read_file(const char *path, uint8_t *buf, uint32_t size);
  * @return int8_t Returns 0 on success, or a negative value on failure.
  */
 int8_t read_dir_entries(uint32_t partition_lba);
+
+/**
+ * @brief Reads data from a FAT32 file into a buffer.
+ *
+ * This function reads up to `size` bytes from the specified FAT32 file into the provided buffer.
+ * It handles cluster traversal and ensures data is read correctly from the file system.
+ *
+ * @param file Pointer to the FAT32 file structure. Must not be NULL and must represent an open file.
+ * @param buf Pointer to the buffer where the read data will be stored. Must not be NULL.
+ * @param size The number of bytes to read from the file.
+ *
+ * @return
+ * - The number of bytes successfully read, which may be less than `size` if the end of the file is reached.
+ * - `0` if the file position is at or beyond the end of the file (EOF).
+ * - `-1` if an error occurs (e.g., invalid file, unexpected EOF, or read failure).
+ *
+ * @note
+ * - The function updates the file's current position and cluster as data is read.
+ * - It assumes the FAT32 file system is properly initialized and accessible.
+ * - The buffer must be large enough to hold the requested number of bytes.
+ * - Reading beyond the end of the file will not cause an error but will return fewer bytes.
+ */
+int32_t read(fat32_file_t *file, void *buf, uint32_t size);
+
+fat32_file_t *get_file_by_fd(int8_t fd);
 
 #endif

@@ -1,6 +1,6 @@
 #include "lib/string.h"
 
-uint64_t strlen(const char *s)
+size_t strlen(const char *s)
 {
     const char *p = s;
     while (*p)
@@ -15,7 +15,7 @@ int32_t strcmp(const char *s1, const char *s2)
     return *(const unsigned char *)s1 - *(const unsigned char *)s2;
 }
 
-int32_t strncmp(const char *s1, const char *s2, uint64_t n)
+int32_t strncmp(const char *s1, const char *s2, size_t n)
 {
     if (n == 0)
         return 0; // Edge case: zero-length comparison
@@ -26,4 +26,49 @@ int32_t strncmp(const char *s1, const char *s2, uint64_t n)
         s2++;
     }
     return *(const unsigned char *)s1 - *(const unsigned char *)s2;
+}
+
+char toupper(char c)
+{
+    if (c >= 'a' && c <= 'z')
+    {
+        return c - ('a' - 'A');
+    }
+    return c;
+}
+
+char *strchr(const char *s, int c)
+{
+    while (*s != '\0')
+    {
+        if (*s == (char)c)
+        {
+            return (char *)s;
+        }
+        s++;
+    }
+    if ((char)c == '\0')
+    {
+        return (char *)s;
+    }
+    return NULL;
+}
+
+char *strrchr(const char *s, int c)
+{
+    const char *last = NULL;
+    while (*s != '\0')
+    {
+        if (*s == (char)c)
+        {
+            last = s;
+        }
+        s++;
+    }
+    // Check for terminating null if c is '\0'
+    if ((char)c == '\0')
+    {
+        return (char *)s;
+    }
+    return (char *)last;
 }

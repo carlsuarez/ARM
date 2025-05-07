@@ -37,16 +37,13 @@ int kernel_main(void)
     mmci_card_init();
     fat32_init(0);
 
-    char buf[100] = {0};
-    fat32_read_file("/HELLO   TXT", buf, sizeof(buf));
-    printk("%s", buf);
+    int8_t fd = open("/big/bigfile.txt");
+    fat32_file_t *file = get_file_by_fd(fd);
+    printk("%x\n", file->current_cluster);
 
-    fat32_read_file("/NOTES   TXT", buf, sizeof(buf));
-    printk("%s", buf);
-
-    fat32_read_file("/LOG     TXT", buf, sizeof(buf));
-    printk("%s", buf);
-
+    char buf[3000] = {0};
+    int32_t num_read = read(file, buf, sizeof(buf));
+    printk("Read %d bytes. Contents:\n%s\n", num_read, buf);
     clf();
     cli();
 
