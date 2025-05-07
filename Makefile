@@ -9,7 +9,7 @@ SRC_DIR=src
 BUILD_DIR=build
 
 # Files
-IMG=$(BUILD_DIR)/sdcard.img
+IMG=image/fat32.img
 
 # Find all .c and .s files recursively
 C_SRCS := $(shell find $(SRC_DIR) -name '*.c')
@@ -23,7 +23,7 @@ OBJS := $(patsubst $(SRC_DIR)/%, $(BUILD_DIR)/%, \
 TARGET=$(BUILD_DIR)/kernel.elf
 
 # Default target
-all: $(TARGET) $(IMG)
+all: $(TARGET)
 
 # Linking
 $(TARGET): $(OBJS) linker.ld
@@ -38,12 +38,6 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
-
-# Make SD card image
-$(IMG):
-	@mkdir -p $(BUILD_DIR)
-	dd if=/dev/zero of=$@ bs=1M count=64
-	mkfs.vfat $@
 
 # QEMU run
 run: all

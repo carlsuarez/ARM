@@ -8,6 +8,7 @@
 #include "lib/printf.h"
 #include "lib/task.h"
 #include "drivers/mmci.h"
+#include "drivers/fat.h"
 
 // Function prototypes
 void task1(void);
@@ -34,16 +35,17 @@ int kernel_main(void)
     task_create(task3);
 
     mmci_card_init();
+    fat32_init(0);
 
-    uint8_t buff[512];
-    sd_read_block(0, buff);
+    char buf[100] = {0};
+    fat32_read_file("/HELLO   TXT", buf, sizeof(buf));
+    printk("%s", buf);
 
-    for (int i = 0; i < 512; i++)
-    {
-        printf("%x ", buff[i]);
-        if ((i + 1) % 16 == 0)
-            printf("\n");
-    }
+    fat32_read_file("/NOTES   TXT", buf, sizeof(buf));
+    printk("%s", buf);
+
+    fat32_read_file("/LOG     TXT", buf, sizeof(buf));
+    printk("%s", buf);
 
     clf();
     cli();

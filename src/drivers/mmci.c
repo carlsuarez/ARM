@@ -179,13 +179,13 @@ int8_t sd_read_block(uint32_t block_addr, uint8_t *buf)
 {
     // Adjust address for SD v1 (byte addressing)
     if (!is_sd_v2)
-        block_addr *= 512;
+        block_addr *= SECTOR_SIZE;
 
     mmci->clear = 0x7FF;
 
     mmci->argument = block_addr;
     mmci->data_timer = 0xFFFFFFFF;
-    mmci->data_length = 512;
+    mmci->data_length = SECTOR_SIZE;
 
     mmci->data_control = MMCI_DATA_CONTROL_EN |
                          MMCI_DATA_CONTROL_DIR |
@@ -204,7 +204,7 @@ int8_t sd_read_block(uint32_t block_addr, uint8_t *buf)
     }
 
     // Read data from FIFO
-    for (int j = 0; j < 512 / 4; j++)
+    for (int j = 0; j < SECTOR_SIZE / 4; j++)
     {
         while (!(mmci->status & MMCI_STATUS_RXDATAAVLBL))
         {
@@ -228,16 +228,16 @@ int8_t sd_write_block(uint32_t block_addr, const uint8_t *buf)
 {
     // Adjust address for SD v1 (byte addressing)
     if (!is_sd_v2)
-        block_addr *= 512;
+        block_addr *= SECTOR_SIZE;
 
     mmci->clear = 0x7FF;
 
     mmci->argument = block_addr;
     mmci->data_timer = 0xFFFFFFFF;
-    mmci->data_length = 512;
+    mmci->data_length = SECTOR_SIZE;
 
     mmci->data_control = MMCI_DATA_CONTROL_EN |
-                         MMCI_DATA_CONTROL_BLOCK_SIZE(9); // 2 ** 9 = 512 bytes
+                         MMCI_DATA_CONTROL_BLOCK_SIZE(9); // 2^9 = 512
 
     mmci->command = MMCI_COMMAND_INDEX(WRITE_BLOCK) |
                     MMCI_COMMAND_RESPONSE |
@@ -250,7 +250,7 @@ int8_t sd_write_block(uint32_t block_addr, const uint8_t *buf)
             return -1;
     }
 
-    for (int j = 0; j < 512 / 4; j++)
+    for (int j = 0; j < SECTOR_SIZE / 4; j++)
     {
         while (!(mmci->status & MMCI_STATUS_TXFIFOEMPTY))
         {
