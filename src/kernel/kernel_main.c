@@ -42,6 +42,7 @@ int kernel_main(void)
     printk("%x\n", file->current_cluster);
 
     char buf[3000] = {0};
+    fat32_seek(file, 100);
     int32_t num_read = read(file, buf, sizeof(buf));
     printk("Read %d bytes. Contents:\n%s\n", num_read, buf);
     clf();

@@ -104,6 +104,25 @@ int8_t read_dir_entries(uint32_t partition_lba);
  */
 int32_t read(fat32_file_t *file, void *buf, uint32_t size);
 
+/**
+ * @brief Seeks to a specific offset within a FAT32 file.
+ *
+ * This function updates the file's current position and cluster based on the
+ * specified offset. It ensures that the offset is within the bounds of the file
+ * and traverses the FAT32 cluster chain as needed.
+ *
+ * @param file Pointer to the FAT32 file structure. Must not be NULL and must
+ *             represent a file currently in use.
+ * @param offset The byte offset to seek to within the file. Must not exceed
+ *               the file size.
+ * @return int8_t Returns 0 on success, or -1 on failure. Failure can occur if:
+ *                - The file pointer is NULL or the file is not in use.
+ *                - The offset is beyond the end of the file (EOF).
+ *                - An unexpected end-of-cluster (EOC) is encountered during
+ *                  traversal.
+ */
+int8_t fat32_seek(fat32_file_t *file, uint32_t offset);
+
 fat32_file_t *get_file_by_fd(int8_t fd);
 
 #endif

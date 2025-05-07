@@ -162,6 +162,32 @@ static uint8_t search_directory(uint32_t cluster, char name[11], fat32_dir_entry
     return 0;
 }
 
+int8_t fat32_seek(fat32_file_t *file, uint32_t offset)
+{
+    if (!file || !file->in_use)
+        return -1;
+
+    uint32_t file_size = file->entry.file_size;
+    if (offset > file_size)
+        return -1; // Can't seek past EOF
+
+    // Reset traversal from first cluster
+    uint32_t cluster = (file->entry.first_cluster_high << 16) | file->entry.first_cluster_low;
+    uint32_t bytes_per_cluster = fat32_info.bytes_per_sector * fat32_info.sectors_per_cluster;
+
+    uint32_t clusters_to_advance = offset / bytes_per_cluster;
+    for (uint32_t i = 0; i < clusters_to_advance; i++)
+    {
+        cluster = fat32_traverse(cluster);
+        if (fat32_is_eoc(cluster))
+            return -1; // Reached EOC unexpectedly
+    }
+
+    file->current_cluster = cluster;
+    file->position = offset;
+    return 0;
+}
+
 int32_t read(fat32_file_t *file, void *buf, uint32_t size)
 {
     if (!file || !file->in_use)
