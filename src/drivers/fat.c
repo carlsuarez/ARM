@@ -162,29 +162,54 @@ static uint8_t search_directory(uint32_t cluster, char name[11], fat32_dir_entry
     return 0;
 }
 
-int8_t fat32_seek(fat32_file_t *file, uint32_t offset)
+int8_t fat32_seek(fat32_file_t *file, int32_t _offset, seek_op_t op)
 {
     if (!file || !file->in_use)
         return -1;
 
     uint32_t file_size = file->entry.file_size;
-    if (offset > file_size)
-        return -1; // Can't seek past EOF
+    int32_t offset = 0;
+    printk("Current position: %u\n", file->position);
 
-    // Reset traversal from first cluster
+    // Compute the new file offset based on seek type
+    switch (op)
+    {
+    case SEEK_SET:
+        offset = _offset;
+        break;
+    case SEEK_CUR:
+        offset = file->position + _offset;
+        break;
+    case SEEK_END:
+        offset = file_size + _offset;
+        break;
+    default:
+        return -1;
+    }
+
+    printk("_offset: %d\n", _offset);
+    printk("Offset: %d\n", offset);
+
+    if (offset < 0 || (uint32_t)offset > file_size)
+        return -1; // Out of bounds
+
+    // Traverse clusters to reach offset
     uint32_t cluster = (file->entry.first_cluster_high << 16) | file->entry.first_cluster_low;
     uint32_t bytes_per_cluster = fat32_info.bytes_per_sector * fat32_info.sectors_per_cluster;
+    uint32_t cluster_offset = offset / bytes_per_cluster;
 
-    uint32_t clusters_to_advance = offset / bytes_per_cluster;
-    for (uint32_t i = 0; i < clusters_to_advance; i++)
+    for (uint32_t i = 0; i < cluster_offset; ++i)
     {
         cluster = fat32_traverse(cluster);
         if (fat32_is_eoc(cluster))
-            return -1; // Reached EOC unexpectedly
+            return -1;
     }
 
     file->current_cluster = cluster;
     file->position = offset;
+
+    printk("New position: %u\n", file->position);
+
     return 0;
 }
 
@@ -376,6 +401,19 @@ int8_t open(const char *path)
 
         path_idx1 = path_idx2;
     }
+}
+
+int8_t close(int8_t fd)
+{
+    if (fd < 0 || fd >= MAX_OPEN_FILES)
+        return -1;
+
+    fat32_file_t *file = &file_table[fd];
+    if (!file->in_use)
+        return -1;
+
+    memset(file, 0, sizeof(fat32_file_t)); // Fully reset the struct
+    return 0;
 }
 
 int8_t read_dir_entries(uint32_t partition_lba)

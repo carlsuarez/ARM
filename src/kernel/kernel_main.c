@@ -37,13 +37,23 @@ int kernel_main(void)
     mmci_card_init();
     fat32_init(0);
 
-    int8_t fd = open("/big/bigfile.txt");
+    int8_t fd = open("/hello.txt");
     fat32_file_t *file = get_file_by_fd(fd);
     printk("%x\n", file->current_cluster);
 
-    char buf[3000] = {0};
-    fat32_seek(file, 100);
+    char buf[20] = {0};
+    fat32_seek(file, 1, SEEK_SET);
     int32_t num_read = read(file, buf, sizeof(buf));
+    printk("Read %d bytes. Contents:\n%s\n", num_read, buf);
+    memset(buf, 0, sizeof(buf));
+
+    fat32_seek(file, -10, SEEK_CUR);
+    num_read = read(file, buf, sizeof(buf));
+    printk("Read %d bytes. Contents:\n%s\n", num_read, buf);
+    memset(buf, 0, sizeof(buf));
+
+    fat32_seek(file, -2, SEEK_END);
+    num_read = read(file, buf, sizeof(buf));
     printk("Read %d bytes. Contents:\n%s\n", num_read, buf);
     clf();
     cli();

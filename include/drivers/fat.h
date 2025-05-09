@@ -52,6 +52,13 @@ typedef struct
     uint32_t file_size;
 } __attribute__((packed)) fat32_dir_entry_t;
 
+typedef enum
+{
+    SEEK_SET,
+    SEEK_CUR,
+    SEEK_END
+} seek_op_t;
+
 typedef struct
 {
     fat32_dir_entry_t entry;
@@ -115,13 +122,18 @@ int32_t read(fat32_file_t *file, void *buf, uint32_t size);
  *             represent a file currently in use.
  * @param offset The byte offset to seek to within the file. Must not exceed
  *               the file size.
+ * @param op The operation to perform (SET, CUR, END).
  * @return int8_t Returns 0 on success, or -1 on failure. Failure can occur if:
  *                - The file pointer is NULL or the file is not in use.
  *                - The offset is beyond the end of the file (EOF).
  *                - An unexpected end-of-cluster (EOC) is encountered during
  *                  traversal.
+ * @note Operations are:
+ *                - SEEK_SET – It moves file pointer position to the beginning of the file.
+ *                - SEEK_CUR – It moves file pointer position to given location.
+ *                - SEEK_END – It moves file pointer position to the end of file.
  */
-int8_t fat32_seek(fat32_file_t *file, uint32_t offset);
+int8_t fat32_seek(fat32_file_t *file, int32_t offset, seek_op_t op);
 
 fat32_file_t *get_file_by_fd(int8_t fd);
 
