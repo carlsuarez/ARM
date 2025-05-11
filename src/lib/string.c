@@ -72,3 +72,34 @@ char *strrchr(const char *s, int c)
     }
     return (char *)last;
 }
+
+char *strcpy(char *dest, const char *src)
+{
+    char *original_dest = dest; // Save the original destination pointer
+
+    // Copy each character from src to dest until '\0' is encountered
+    while ((*dest++ = *src++) != '\0')
+        ;
+
+    return original_dest; // Return the start of the destination string
+}
+
+char *strncpy(char *dest, const char *src, size_t n)
+{
+    char *original_dest = dest; // Save the original destination pointer
+    size_t i;
+
+    // Copy up to n characters from src to dest
+    for (i = 0; i < n && src[i] != '\0'; i++)
+    {
+        dest[i] = src[i];
+    }
+
+    // If src is shorter than n, pad dest with '\0'
+    for (; i < n; i++)
+    {
+        dest[i] = '\0';
+    }
+
+    return original_dest; // Return the start of the destination string
+}

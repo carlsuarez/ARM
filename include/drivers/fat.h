@@ -4,12 +4,15 @@
 #include "defs.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <limits.h>
+#include <stdbool.h>
 
 #define DIR_ENTRY_SIZE 32
 #define ENTRIES_PER_SECTOR (SECTOR_SIZE / DIR_ENTRY_SIZE)
 #define FAT32_EOC ((uint32_t)0x0FFFFFF8)
 #define ENTRY_UNUSED 0xE5
 #define MAX_OPEN_FILES 3
+#define FAT_ENTRY_SIZE 32
 
 struct fat32_info
 {
@@ -25,7 +28,7 @@ struct fat32_info
     uint32_t partition_start_lba;
 };
 
-typedef enum
+typedef enum fat32_attribute
 {
     READ_ONLY = (uint8_t)0x1,
     HIDDEN = (uint8_t)0x2,
@@ -36,7 +39,7 @@ typedef enum
     LONG_FILENAME = (uint8_t)0xF,
 } fat32_attribute_t;
 
-typedef struct
+typedef struct fat32_dir_entry
 {
     char name[11];          // 8.3 filename
     fat32_attribute_t attr; // File attributes
@@ -52,16 +55,17 @@ typedef struct
     uint32_t file_size;
 } __attribute__((packed)) fat32_dir_entry_t;
 
-typedef enum
+typedef enum seek_op
 {
     SEEK_SET,
     SEEK_CUR,
     SEEK_END
 } seek_op_t;
 
-typedef struct
+typedef struct fat32_file
 {
     fat32_dir_entry_t entry;
+    uint32_t parent_cluster;
     uint32_t current_cluster;
     uint32_t position;
     uint8_t in_use;
@@ -78,7 +82,7 @@ int8_t fat32_init(uint32_t partition_lba);
 /**
  * @brief
  */
-int8_t open(const char *path);
+int8_t fat32_open(const char *path);
 
 /**
  * @brief Reads and prints the entries in the root directory of the FAT32 file system.
@@ -109,7 +113,7 @@ int8_t read_dir_entries(uint32_t partition_lba);
  * - The buffer must be large enough to hold the requested number of bytes.
  * - Reading beyond the end of the file will not cause an error but will return fewer bytes.
  */
-int32_t read(fat32_file_t *file, void *buf, uint32_t size);
+int32_t fat32_read(int8_t fd, void *buf, size_t size);
 
 /**
  * @brief Seeks to a specific offset within a FAT32 file.
@@ -133,8 +137,52 @@ int32_t read(fat32_file_t *file, void *buf, uint32_t size);
  *                - SEEK_CUR – It moves file pointer position to given location.
  *                - SEEK_END – It moves file pointer position to the end of file.
  */
-int8_t fat32_seek(fat32_file_t *file, int32_t offset, seek_op_t op);
+int8_t fat32_seek(int8_t fd, int32_t offset, seek_op_t op);
 
-fat32_file_t *get_file_by_fd(int8_t fd);
+/**
+ * @brief Creates a new file in the FAT32 filesystem at the specified path.
+ *
+ * This function creates a new file in the FAT32 filesystem by determining the
+ * parent directory, validating the filename, allocating a cluster for the file,
+ * and adding a directory entry for the new file.
+ *
+ * @param path The full path of the file to be created, including the filename.
+ *             The filename must conform to the 8.3 format and be no longer than
+ *             11 characters.
+ *
+ * @return int8_t Returns 0 on success, or -1 on failure.
+ *                Failure can occur due to:
+ *                - Invalid path or filename.
+ *                - Failure to locate the parent directory.
+ *                - Failure to allocate a cluster for the file.
+ *
+ * @details
+ * - The function extracts the parent directory path from the given file path.
+ * - It validates the filename and converts it to the FAT32 8.3 format.
+ * - A new directory entry is created with default attributes, timestamps, and
+ *   an allocated starting cluster.
+ * - The new directory entry is added to the parent directory.
+ */
+int8_t fat32_create_file(const char *path);
+
+/**
+ * @brief Writes data to a file in a FAT32 filesystem.
+ *
+ * This function writes the specified buffer to a file located at the given path
+ * in the FAT32 filesystem. It handles writing data across clusters, allocating
+ * new clusters if necessary, and updating the file's directory entry with the
+ * new size.
+ *
+ * @param path The path to the file to write to.
+ * @param buf A pointer to the buffer containing the data to write.
+ * @param size The number of bytes to write from the buffer.
+ * @return The number of bytes successfully written, or -1 on failure.
+ *
+ * @note This function assumes that the FAT32 filesystem is already initialized
+ *       and that the file exists at the specified path.
+ * @note If the file size exceeds the available space, the function will fail.
+ * @note The function updates the FAT table and directory entry as needed.
+ */
+int32_t fat32_write(int8_t fd, uint8_t *buf, size_t size);
 
 #endif

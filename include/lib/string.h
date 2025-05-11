@@ -62,4 +62,33 @@ char *strchr(const char *s, int c);
  */
 char *strrchr(const char *s, int c);
 
+/**
+ * @brief Copies the string pointed to by src (including the null terminator)
+ *        to the buffer pointed to by dest.
+ *
+ * @param dest Pointer to the destination buffer where the content is to be copied.
+ * @param src Pointer to the null-terminated string to be copied.
+ * @return A pointer to the destination string dest.
+ *
+ * @note The destination buffer must be large enough to hold the source string,
+ *       including the null terminator. Behavior is undefined if the source and
+ *       destination buffers overlap.
+ */
+char *strcpy(char *dest, const char *src);
+
+/**
+ * @brief Copies up to n characters from the string pointed to by src to the
+ *        buffer pointed to by dest.
+ *
+ * @param dest Pointer to the destination buffer where the content is to be copied.
+ * @param src Pointer to the null-terminated string to be copied.
+ * @param n Maximum number of characters to copy, including the null terminator.
+ * @return A pointer to the destination string dest.
+ *
+ * @note If the length of src is less than n, the remainder of dest will be
+ *       padded with null bytes. If n is greater than the length of src, the
+ *       behavior is undefined if the source and destination buffers overlap.
+ */
+char *strncpy(char *dest, const char *src, size_t n);
+
 #endif
