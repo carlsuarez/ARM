@@ -35,7 +35,7 @@ typedef enum fat32_attribute
     SYSTEM = (uint8_t)0x4,
     VOLUME_ID = (uint8_t)0x8,
     DIRECTORY = (uint8_t)0x10,
-    ARCHIVE = (uint8_t)0x2,
+    ARCHIVE = (uint8_t)0x20,
     LONG_FILENAME = (uint8_t)0xF,
 } fat32_attribute_t;
 
@@ -80,7 +80,18 @@ typedef struct fat32_file
 int8_t fat32_init(uint32_t partition_lba);
 
 /**
- * @brief
+ * @brief Opens a file in the FAT32 filesystem.
+ *
+ * This function attempts to locate the specified file in the FAT32 filesystem
+ * and adds it to the file table if it is a valid file. It does not support
+ * opening directories as files.
+ *
+ * @param path The path to the file to be opened.
+ *
+ * @return
+ *   - Index in file_table on success, indicating the file was successfully added to the file table.
+ *   - -1 if the file could not be located.
+ *   - -2 if the specified path corresponds to a directory, which cannot be opened as a file.
  */
 int8_t fat32_open(const char *path);
 
@@ -184,5 +195,8 @@ int8_t fat32_create_file(const char *path);
  * @note The function updates the FAT table and directory entry as needed.
  */
 int32_t fat32_write(int8_t fd, uint8_t *buf, size_t size);
+
+int8_t fat32_create_directory(const char *path);
+int8_t fat32_close(int8_t fd);
 
 #endif

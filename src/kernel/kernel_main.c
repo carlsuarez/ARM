@@ -37,10 +37,14 @@ int kernel_main(void)
     mmci_card_init();
     fat32_init(0);
 
-    int8_t ret = fat32_create_file("/cj.txt");
-    printk("Return value: %d\n");
+    int8_t ret = fat32_create_directory("/test");
+    ret = fat32_create_directory("/test/test1");
+    ret = fat32_create_file("/cj.txt");
+    ret = fat32_create_file("/test/cj.txt");
 
     int8_t fd = fat32_open("/cj.txt");
+    printk("fd: %d\n", fd);
+    fat32_close(fd);
 
     clf();
     cli();

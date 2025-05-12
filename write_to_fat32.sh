@@ -1,23 +1,22 @@
 #!/bin/bash
 
-set -e  # Exit on error
-set -u  # Exit on undefined variables
+set -e
+set -u
 
-# Config
 WORK_DIR="./image"
 IMAGE="$WORK_DIR/fat32.img"
 MOUNT_DIR="$WORK_DIR/mount"
 LABEL="MYDISK"
 SIZE_MB=32
 
-# File contents
+# All filenames in valid 8.3 format (uppercase, <=8 chars + 3-char ext)
 declare -A FILES=(
-    ["hello.txt"]="Hello from FAT32!"
-    ["notes.txt"]=$'These are some random notes.\nLine 2 of notes.'
-    ["log.txt"]=$'Log start...\nEvent 1: OK\nEvent 2: OK\nLog end.'
-    ["docs/info.txt"]="This is a nested info file."
-    ["logs/2025/summary.txt"]="If you're visiting this page, you're likely here because you're searching for a random sentence. Sometimes a random word just isn't enough, and that is where the random sentence generator comes into play. By inputting the desired number, you can make a list of as many random sentences as you want or need. Producing random sentences can be helpful in a number of different ways. For writers, a random sentence can help them get their creative juices flowing. Since the topic of the sentence is completely unknown, it forces the writer to be creative when the sentence appears. There are a number of different ways a writer can use the random sentence for creativity. The most common way to use the sentence is to begin a story. Another option is to include it somewhere in the story. A much more difficult challenge is to use it to end a story. In any of these cases, it forces the writer to think creatively since they have no idea what sentence will appear from the tool."
-    ["big/bigfile.txt"]="__BIGFILE__"
+    ["HELLO.TXT"]="Hello from FAT32!"
+    ["NOTES.TXT"]=$'These are some random notes.\nLine 2 of notes.'
+    ["LOG.TXT"]=$'Log start...\nEvent 1: OK\nEvent 2: OK\nLog end.'
+    ["DOCS/INFO.TXT"]="This is a nested info file."
+    ["LOGS/Y2025/SUMMARY.TXT"]="If you're visiting this page, you're likely here because you're searching for a random sentence. Sometimes a random word just isn't enough, and that is where the random sentence generator comes into play. By inputting the desired number, you can make a list of as many random sentences as you want or need. Producing random sentences can be helpful in a number of different ways. For writers, a random sentence can help them get their creative juices flowing. Since the topic of the sentence is completely unknown, it forces the writer to be creative when the sentence appears. There are a number of different ways a writer can use the random sentence for creativity. The most common way to use the sentence is to begin a story. Another option is to include it somewhere in the story. A much more difficult challenge is to use it to end a story. In any of these cases, it forces the writer to think creatively since they have no idea what sentence will appear from the tool."
+    ["BIG/BIGFILE.TXT"]="__BIGFILE__"
 )
 
 cleanup() {
@@ -37,9 +36,9 @@ mkdir -p "$WORK_DIR"
 mkdir -p "$MOUNT_DIR"
 
 echo "[*] Creating ${SIZE_MB}MB FAT32 image at $IMAGE..."
-dd if=/dev/zero of="$IMAGE" bs=1M count=$SIZE_MB status=progress
+dd if=/dev/zero of="$IMAGE" bs=1M count=$SIZE_MB status=none
 
-echo "[*] Formatting image as FAT32 with label '$LABEL'..."
+echo "[*] Formatting image as FAT32 with label '$LABEL' (no LFN)..."
 mkfs.vfat -F 32 -n "$LABEL" "$IMAGE"
 
 echo "[*] Mounting image at $MOUNT_DIR..."
@@ -64,5 +63,5 @@ done
 echo "[*] Syncing file system..."
 sync "$MOUNT_DIR"
 
-echo "[✔] FAT32 image created at $IMAGE with nested directories and large file content."
+echo "[✔] FAT32 image created at $IMAGE with 8.3 filenames only."
 ls -lh "$IMAGE"
