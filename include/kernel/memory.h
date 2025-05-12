@@ -15,6 +15,6 @@ void *memcpy(const void *restrict _dest, const void *restrict _src, size_t num_b
  * @param n Number of bytes to compare
  * @return <0 if s1 < s2, 0 if s1 == s2, >0 if s1 > s2
  */
-int32_t memcmp(const void *s1, const void *s2, size_t n);
+int32_t memcmp(const void *restrict s1, const void *restrict s2, size_t n);
 
 #endif

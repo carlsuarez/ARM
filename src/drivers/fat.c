@@ -321,7 +321,7 @@ static uint32_t fat32_allocate_cluster(void)
         if (entry == 0)
         {
             // Mark as end-of-chain (EOC)
-            *(uint32_t *)(fat_sector + offset) = 0x0FFFFFF8;
+            *(uint32_t *)(fat_sector + offset) = FAT32_EOC;
 
             // Write it back to disk
             if (write_back_fat_sector())
@@ -387,6 +387,9 @@ static uint32_t fat32_append_cluster(uint32_t start_cluster)
  */
 static bool fat32_search_directory(uint32_t cluster, char name[11], fat32_dir_entry_t *result)
 {
+    char p[12] = {0};
+    memcpy(p, name, 11);
+    printk("Searching for '%s' in cluster %u\n", p, cluster);
     uint8_t sector_buf[SECTOR_SIZE];
 
     while (!fat32_is_eoc(cluster))
@@ -397,17 +400,19 @@ static bool fat32_search_directory(uint32_t cluster, char name[11], fat32_dir_en
             if (sd_read_block(lba, sector_buf))
                 continue;
 
-            for (int j = 2; j < ENTRIES_PER_SECTOR; j++)
-            { // Iterate over entries (skip . and ..)
+            for (int j = 0; j < ENTRIES_PER_SECTOR; j++)
+            { // Iterate over entries
                 fat32_dir_entry_t *entry = (fat32_dir_entry_t *)(sector_buf + j * sizeof(fat32_dir_entry_t));
 
                 // Check for end of directory
                 if (entry->name[0] == 0x00)
                     return 0;
 
-                // Skip deleted or long name entries
+                // Skip deleted, long name entries and ./..
                 if ((uint8_t)entry->name[0] == ENTRY_UNUSED ||
-                    entry->attr == LONG_FILENAME)
+                    entry->attr == LONG_FILENAME ||
+                    memcmp(&entry->name, ".          ", 11) == 0 ||
+                    memcmp(&entry->name, "..         ", 11) == 0)
                 {
                     continue;
                 }
@@ -416,7 +421,9 @@ static bool fat32_search_directory(uint32_t cluster, char name[11], fat32_dir_en
                 char entry_name[12] = {0};
                 memcpy(entry_name, entry->name, 11);
 
-                if (strncmp(name, entry_name, 11) == 0)
+                printk("Comparing '%s' to '%s'\n", p, entry_name);
+
+                if (memcmp(name, entry->name, 11) == 0)
                 {
                     if (result)
                         memcpy(result, entry, sizeof(fat32_dir_entry_t));
@@ -595,20 +602,9 @@ int32_t fat32_read(int8_t fd, void *buf, size_t size)
     uint32_t to_read = (size < remaining) ? size : remaining;
 
     uint8_t *buffer = (uint8_t *)buf;
-    uint32_t cluster = file->current_cluster;
+    uint32_t cluster = file->current_cluster; // Trust the cluster from seek
     uint32_t bytes_per_cluster = fat32_info.sectors_per_cluster * SECTOR_SIZE;
-    uint32_t offset = file->position;
-
-    // Skip clusters to reach the one containing the current position
-    uint32_t skip_clusters = offset / bytes_per_cluster;
-    for (uint32_t i = 0; i < skip_clusters; ++i)
-    {
-        cluster = fat32_traverse(cluster);
-        if (fat32_is_eoc(cluster))
-            return -1; // Unexpected EOF
-    }
-
-    uint32_t cluster_offset = offset % bytes_per_cluster;
+    uint32_t cluster_offset = file->position % bytes_per_cluster;
     uint32_t bytes_read = 0;
 
     while (to_read > 0 && !fat32_is_eoc(cluster))
@@ -639,7 +635,13 @@ int32_t fat32_read(int8_t fd, void *buf, size_t size)
             file->position += copy_len;
         }
 
-        cluster = fat32_traverse(cluster);
+        if (to_read > 0)
+        {
+            cluster = fat32_traverse(cluster);
+            if (fat32_is_eoc(cluster))
+                break;
+            file->current_cluster = cluster;
+        }
     }
 
     return bytes_read;
@@ -780,7 +782,7 @@ static int8_t fat32_add_dir_entry(const fat32_dir_entry_t *const dir_entry, fat3
  * - If the end of the cluster chain is reached without finding the entry, the function
  *   returns -1.
  */
-static int8_t fat32_update_dir_entry(fat32_dir_entry_t *const dir_entry, uint32_t parent_cluster)
+static int8_t fat32_update_dir_entry(const fat32_dir_entry_t *const dir_entry, fat32_dir_entry_t *const updated, uint32_t parent_cluster)
 {
     uint32_t cluster = parent_cluster;
     uint8_t sector_buf[SECTOR_SIZE];
@@ -801,10 +803,10 @@ static int8_t fat32_update_dir_entry(fat32_dir_entry_t *const dir_entry, uint32_
                 if (entry->name[0] == ENTRY_UNUSED || entry->attr == LONG_FILENAME)
                     continue;
 
-                // Match 11-byte FAT name
-                if (memcmp(entry->name, dir_entry->name, 11) == 0)
+                // Match the entry
+                if (memcmp(&entry->name, &dir_entry->name, 11) == 0)
                 {
-                    memcpy(entry, dir_entry, sizeof(fat32_dir_entry_t));
+                    memcpy(entry, updated, sizeof(fat32_dir_entry_t));
                     if (sd_write_block(lba, sector_buf))
                         return -1;
                     return 0;
@@ -899,16 +901,17 @@ static int8_t fat32_create_new(const char *path, fat32_dir_entry_t *new_entry)
 
     // --- (3) Check if file exists ---
     const char *filename = last_slash + 1;
+    char fat_name[11];
+    if (!string_to_fat83(filename, fat_name))
+        return -1;
+
     uint32_t parent_cluster = (parent.first_cluster_high << 16) | parent.first_cluster_low;
-    if (fat32_search_directory(parent_cluster, filename, NULL))
+    if (fat32_search_directory(parent_cluster, fat_name, NULL))
     {
         return -2; // File exists
     }
 
     // --- (4) Copy name to entry ---
-    char fat_name[11];
-    if (!string_to_fat83(filename, fat_name))
-        return -1;
     memcpy(new_entry->name, fat_name, 11);
 
     // Allocate cluster
@@ -946,11 +949,6 @@ static int8_t fat32_create_new(const char *path, fat32_dir_entry_t *new_entry)
 
         dot_name[1] = '.';
         memcpy(&parent.name, dot_name, 11);
-
-        printk("parent: \n");
-        printk("attr: %x\n", parent.attr);
-        printk("file_size: %u\n", parent.file_size);
-        printk("first_cluster: %u\n", (parent.first_cluster_high << 16) | parent.first_cluster_low);
 
         if (fat32_add_dir_entry(new_entry, &parent)) // Add .. to new_entry
         {
@@ -1066,16 +1064,120 @@ int32_t fat32_write(int8_t fd, uint8_t *buf, size_t size)
         }
     }
 
+    fat32_dir_entry_t updated;
+    memcpy(&updated, f, sizeof(fat32_dir_entry_t));
+
     f->position = pos;
     f->current_cluster = curr_cluster;
 
     if (f->position > f->entry.file_size)
-        f->entry.file_size = f->position;
+        updated.file_size = f->position;
 
-    if (fat32_update_dir_entry(&f->entry, f->parent_cluster) < 0)
+    // Update the disk
+    if (fat32_update_dir_entry(&f->entry, &updated, f->parent_cluster) < 0)
         return -1;
 
+    // Update the entry in the file table
+    memcpy(&f->entry, &updated, sizeof(fat32_dir_entry_t));
     return bytes_written;
+}
+
+static int8_t fat32_free_cluster_chain(uint32_t start_cluster)
+{
+    if (start_cluster < 2)
+        return -1;
+
+    uint32_t total_entries = (fat32_info.sectors_per_fat * SECTOR_SIZE) / FAT_ENTRY_SIZE;
+    if (start_cluster >= total_entries)
+        return -1;
+
+    uint32_t curr = start_cluster, next;
+
+    do
+    {
+        if (curr < 2 || curr >= total_entries)
+            break;
+
+        uint32_t fat_sector_index = calc_fat_sector(curr);
+        uint32_t fat_offset = calc_offset_in_fat_sector(curr);
+        load_fat_sector(fat_sector_index);
+
+        next = *(uint32_t *)(fat_sector + fat_offset);
+
+        fat32_set_fat_entry(curr, 0x00000000); // Free the cluster
+
+        uint32_t lba = cluster_to_lba(curr);
+        for (uint32_t s = 0; s < fat32_info.sectors_per_cluster; ++s)
+        { // Zero out the data in this cluster
+            uint8_t zero_sector[SECTOR_SIZE] = {0};
+            if (sd_write_block(lba + s, zero_sector))
+            {
+                return -1; // Write failed
+            }
+        }
+
+        curr = next;
+    } while (!fat32_is_eoc(curr));
+
+    return 0;
+}
+
+int8_t fat32_delete(const char *path)
+{
+    // --- (1) Extract parent path ---
+    char parent_path[256] = {0};
+    const char *last_slash = strrchr(path, '/');
+
+    if (!last_slash || last_slash == path)
+    {
+        strcpy(parent_path, "/"); // Root is parent
+    }
+    else
+    {
+        strncpy(parent_path, path, last_slash - path);
+        parent_path[last_slash - path] = '\0'; // Null-terminate
+    }
+
+    // --- (2) Validate parent dir (fat32_get_dir_entry handles path checks) ---
+    fat32_dir_entry_t parent;
+    if (fat32_get_dir_entry(parent_path, &parent, NULL) < 0)
+        return -1; // Parent invalid
+
+    // --- (3) Check if file exists ---
+    const char *filename = last_slash + 1;
+    uint32_t parent_cluster = (parent.first_cluster_high << 16) | parent.first_cluster_low;
+    printk("parent_cluster: %u\n", parent_cluster);
+    char fat_name[11];
+    if (!string_to_fat83(filename, fat_name))
+        return -1;
+
+    fat32_dir_entry_t entry;
+    if (!fat32_search_directory(parent_cluster, fat_name, &entry))
+    {
+        return -2; // Does not exist
+    }
+
+    // --- (4) Check that file is not in use
+    for (int8_t i = 0; i < MAX_OPEN_FILES; i++)
+    {
+        fat32_file_t *file = &file_table[i];
+        if (memcmp(&entry, &file->entry, sizeof(fat32_dir_entry_t)) == 0 && file->in_use)
+        {
+            return -1; // Cannot delete open file
+        }
+    }
+
+    // --- (5) Set the dir entry to be unused/deleted
+    fat32_dir_entry_t deleted;
+    memset(&deleted, 0, sizeof(fat32_dir_entry_t));
+    char n[11] = {' '};
+    n[0] = ENTRY_UNUSED;
+    memcpy(&deleted.name, n, 11); // Set the name to 0xE5
+    fat32_update_dir_entry(&entry, &deleted, parent_cluster);
+
+    // --- (6) Free the cluster chain
+    uint32_t cluster = (entry.first_cluster_high << 16) | entry.first_cluster_low;
+    return fat32_free_cluster_chain(cluster);
 }
 
 int8_t read_dir_entries(uint32_t partition_lba)

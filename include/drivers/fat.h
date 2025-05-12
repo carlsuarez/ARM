@@ -198,5 +198,6 @@ int32_t fat32_write(int8_t fd, uint8_t *buf, size_t size);
 
 int8_t fat32_create_directory(const char *path);
 int8_t fat32_close(int8_t fd);
+int8_t fat32_delete(const char *path);
 
 #endif
