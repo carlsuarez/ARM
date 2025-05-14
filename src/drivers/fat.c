@@ -8,6 +8,7 @@ static struct fat32_info fat32_info;
 static uint32_t current_fat_sector = UINT32_MAX; // Garbage value
 static uint8_t fat_sector[SECTOR_SIZE];
 static fat32_file_t file_table[MAX_OPEN_FILES];
+uint32_t current_directory_cluster;
 
 static fat32_file_t *get_file_by_fd(int8_t fd)
 {
@@ -213,18 +214,23 @@ static inline int8_t write_back_fat_sector(void)
  */
 static uint32_t fat32_traverse(uint32_t cluster)
 {
+    printk("Going from cluster %x ... ", cluster);
     uint32_t fat_sector_num = calc_fat_sector(cluster);
     uint32_t fat_offset = calc_offset_in_fat_sector(cluster);
 
     if (fat_sector_num != current_fat_sector)
     {
         if (load_fat_sector(fat_sector_num) != 0)
+        {
+            printk("load_fat_sector failed\n");
             return 0;
+        }
         current_fat_sector = fat_sector_num;
     }
 
     uint32_t next_cluster = *(uint32_t *)(fat_sector + fat_offset);
     next_cluster &= 0x0FFFFFFF;
+    printk("to cluster %x\n", next_cluster);
     return next_cluster;
 }
 
@@ -406,13 +412,11 @@ static bool fat32_search_directory(uint32_t cluster, char name[11], fat32_dir_en
 
                 // Check for end of directory
                 if (entry->name[0] == 0x00)
-                    return 0;
+                    return false;
 
-                // Skip deleted, long name entries and ./..
+                // Skip deleted and long name entries
                 if ((uint8_t)entry->name[0] == ENTRY_UNUSED ||
-                    entry->attr == LONG_FILENAME ||
-                    memcmp(&entry->name, ".          ", 11) == 0 ||
-                    memcmp(&entry->name, "..         ", 11) == 0)
+                    entry->attr == LONG_FILENAME)
                 {
                     continue;
                 }
@@ -427,14 +431,14 @@ static bool fat32_search_directory(uint32_t cluster, char name[11], fat32_dir_en
                 {
                     if (result)
                         memcpy(result, entry, sizeof(fat32_dir_entry_t));
-                    return 1;
+                    return true;
                 }
             }
         }
         cluster = fat32_traverse(cluster);
     }
 
-    return 0;
+    return false;
 }
 
 /**
@@ -490,8 +494,6 @@ static int8_t fat32_get_dir_entry(const char *path, fat32_dir_entry_t *dir_entry
         // Skip redundant slashes
         while (*p == '/')
             p++;
-        if (*p == '\0')
-            break;
 
         // Extract component
         const char *start = p;
@@ -504,10 +506,6 @@ static int8_t fat32_get_dir_entry(const char *path, fat32_dir_entry_t *dir_entry
 
         memcpy(component, start, len);
         component[len] = '\0';
-
-        // Ignore "." and ".."
-        if (strcmp(component, ".") == 0 || strcmp(component, "..") == 0)
-            return -1;
 
         // Convert to FAT 8.3
         char fat_name[11];
@@ -523,9 +521,9 @@ static int8_t fat32_get_dir_entry(const char *path, fat32_dir_entry_t *dir_entry
         if (*p == '\0')
         {
             if (dir_entry)
-                memcpy(dir_entry, &entry, sizeof(*dir_entry));
+                memcpy(dir_entry, &entry, sizeof(fat32_dir_entry_t));
             if (parent)
-                memcpy(parent, &last_parent, sizeof(*parent));
+                memcpy(parent, &last_parent, sizeof(fat32_dir_entry_t));
             return 0;
         }
 
@@ -849,6 +847,7 @@ int8_t fat32_init(uint32_t partition_lba)
     printk("  FAT Start LBA: %u\n", fat32_info.fat_start_lba);
     printk("  Cluster Heap Start LBA: %u\n", fat32_info.cluster_heap_start_lba);
 
+    current_directory_cluster = fat32_info.root_cluster;
     load_fat_sector(0);
     return 0;
 }
@@ -870,7 +869,7 @@ int8_t fat32_close(int8_t fd)
     if (fd < 0 || fd >= MAX_OPEN_FILES)
         return -1;
 
-    fat32_file_t *file = &file_table[fd];
+    fat32_file_t *file = get_file_by_fd(fd);
     if (!file->in_use)
         return -1;
 
@@ -1178,6 +1177,70 @@ int8_t fat32_delete(const char *path)
     // --- (6) Free the cluster chain
     uint32_t cluster = (entry.first_cluster_high << 16) | entry.first_cluster_low;
     return fat32_free_cluster_chain(cluster);
+}
+
+int8_t fat32_truncate(int8_t fd, uint32_t new_size)
+{
+    fat32_file_t *file = get_file_by_fd(fd);
+
+    if (!file || file->entry.attr == DIRECTORY || file->entry.file_size < new_size)
+        return -1;
+
+    // Copy the entry
+    fat32_dir_entry_t copy;
+    memcpy(&copy, &file->entry, sizeof(fat32_dir_entry_t));
+
+    uint32_t cluster_size = fat32_info.bytes_per_sector * fat32_info.sectors_per_cluster;
+    uint32_t skip_clusters = file->entry.file_size / cluster_size;
+    uint32_t offset = new_size % cluster_size;
+
+    uint32_t current = (file->entry.first_cluster_high << 16) | file->entry.first_cluster_low;
+
+    for (uint32_t i = 0; i < skip_clusters; i++)
+    {
+        current = fat32_traverse(current);
+    }
+
+    // Save next cluster index
+    uint32_t next = fat32_traverse(current);
+
+    // Cut the chain
+    fat32_set_fat_entry(current, FAT32_EOC);
+
+    uint8_t sector_buf[SECTOR_SIZE];
+    for (int i = offset / SECTOR_SIZE /* Start at sector containing offset */; i < fat32_info.sectors_per_cluster; i++)
+    {
+        if (sd_read_block(cluster_to_lba(current) + i, sector_buf))
+            return -1;
+
+        if (i == offset / SECTOR_SIZE)
+        {
+            printk("Offset: %u\n", offset);
+            memset(sector_buf + offset, 0, SECTOR_SIZE - offset);
+        }
+        else
+        {
+            memset(sector_buf, 0, SECTOR_SIZE);
+        }
+
+        if (sd_write_block(cluster_to_lba(current) + i, sector_buf))
+            return -1;
+    }
+
+    // Free the remaining clusters
+    fat32_free_cluster_chain(next);
+
+    file->entry.file_size = new_size;
+
+    // Write back entry to disk
+    fat32_update_dir_entry(&copy, &file->entry, file->parent_cluster);
+
+    return 0;
+}
+
+int8_t fat32_stat(const char *path, fat32_dir_entry_t *out)
+{
+    return fat32_get_dir_entry(path, out, NULL);
 }
 
 int8_t read_dir_entries(uint32_t partition_lba)

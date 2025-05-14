@@ -43,7 +43,7 @@ typedef struct fat32_dir_entry
 {
     char name[11];          // 8.3 filename
     fat32_attribute_t attr; // File attributes
-    uint8_t reserved;
+    RESERVE_U8(1);
     uint8_t create_time_hundreths;
     uint16_t create_time;
     uint16_t create_date;
@@ -54,6 +54,8 @@ typedef struct fat32_dir_entry
     uint16_t first_cluster_low;
     uint32_t file_size;
 } __attribute__((packed)) fat32_dir_entry_t;
+
+extern uint32_t current_directory_cluster;
 
 typedef enum seek_op
 {
@@ -199,5 +201,7 @@ int32_t fat32_write(int8_t fd, uint8_t *buf, size_t size);
 int8_t fat32_create_directory(const char *path);
 int8_t fat32_close(int8_t fd);
 int8_t fat32_delete(const char *path);
+int8_t fat32_truncate(int8_t fd, uint32_t new_size);
+int8_t fat32_stat(const char *path, fat32_dir_entry_t *out);
 
 #endif

@@ -37,41 +37,22 @@ int kernel_main(void)
     mmci_card_init();
     fat32_init(0);
 
-    /* Tests that should succeed */
-    int8_t ret = fat32_create_directory("/test"); // Create directory in root
-    ret = fat32_create_directory("/test/test1");  // Create nested directory
-    ret = fat32_create_file("/cj.txt");           // Create file
-    ret = fat32_create_file("/test/cj.txt");      // Create file in directory
-
-    int8_t fd = fat32_open("/cj.txt"); // Open file
-    char buf[] = "This is a test for writing\n";
-    fat32_write(fd, buf, sizeof(buf)); // Write to file
-    char read_buf[100] = {0};
+    int8_t fd = fat32_open("/big/bigfile.txt");
+    char buf[2500];
     fat32_seek(fd, 0, SEEK_SET);
-    uint32_t bytes_read = fat32_read(fd, read_buf, 100); // Read file
-    printk("Read %u bytes. Contents:\n%s", bytes_read, read_buf);
+    int32_t bytes_read = fat32_read(fd, buf, sizeof(buf));
+    printk("Read %d bytes\n", bytes_read);
+    fat32_truncate(fd, 511);
+    memset(buf, 0, sizeof(buf));
+    fat32_seek(fd, 0, SEEK_SET);
+    bytes_read = fat32_read(fd, buf, sizeof(buf));
+    printk("Read %d bytes\n", bytes_read);
     fat32_close(fd);
 
-    ret = fat32_delete("/test/test1"); // Delete an empty directory
-    printk("Return value (/test/test1 delete): %d\n", ret);
-    ret = fat32_delete("/hello.txt"); // Delete file
-    printk("Return value (hello.txt delete): %d\n", ret);
-    ret = fat32_delete("/cj.txt"); // Delete file created by me
-    printk("Return value (cj.txt delete): %d\n", ret);
+    fat32_dir_entry_t stat;
+    fat32_stat("/big/bigfile.txt", &stat);
+    printk("File size: %u\n", stat.file_size);
 
-    /* Tests that should fail */
-    ret = fat32_open("/test"); // Open directory as file
-    printk("Opening test directory. Return value: %d\n", ret);
-
-    ret = fat32_create_directory("/test"); // Create already made directory
-    printk("Creating test directory again (fail). Return value: %d\n", ret);
-    ret = fat32_create_file("/log.txt"); // Create already made file
-    printk("Creating log.txt file again (fail). Return value: %d\n", ret);
-    ret = fat32_delete("/cj.txt");
-    printk("Deleting already deleted file (fail). Return value: %d\n", ret);
-
-    ret = fat32_write(5, buf, sizeof(buf)); // Give bad fd
-    printk("Writing to non-existent fd. Return value: %d\n", ret);
     clf();
     cli();
 
