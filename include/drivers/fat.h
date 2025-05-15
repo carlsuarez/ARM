@@ -13,6 +13,7 @@
 #define ENTRY_UNUSED 0xE5
 #define MAX_OPEN_FILES 3
 #define FAT_ENTRY_SIZE 32
+#define MAX_PATH_DEPTH 32
 
 struct fat32_info
 {
@@ -96,14 +97,6 @@ int8_t fat32_init(uint32_t partition_lba);
  *   - -2 if the specified path corresponds to a directory, which cannot be opened as a file.
  */
 int8_t fat32_open(const char *path);
-
-/**
- * @brief Reads and prints the entries in the root directory of the FAT32 file system.
- *
- * @param partition_lba Logical Block Address (LBA) of the partition to read.
- * @return int8_t Returns 0 on success, or a negative value on failure.
- */
-int8_t read_dir_entries(uint32_t partition_lba);
 
 /**
  * @brief Reads data from a FAT32 file into a buffer.

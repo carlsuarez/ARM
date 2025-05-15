@@ -53,6 +53,11 @@ int kernel_main(void)
     fat32_stat("/big/bigfile.txt", &stat);
     printk("File size: %u\n", stat.file_size);
 
+    fat32_create_file("/cj.txt");
+    fat32_create_directory("/test");
+    fat32_create_file("/test/cj.txt");
+    fat32_create_directory("/test/test1");
+
     clf();
     cli();
 

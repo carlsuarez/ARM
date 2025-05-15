@@ -459,84 +459,106 @@ static bool fat32_search_directory(uint32_t cluster, char name[11], fat32_dir_en
  */
 static int8_t fat32_get_dir_entry(const char *path, fat32_dir_entry_t *dir_entry, fat32_dir_entry_t *parent)
 {
-    if (!path || path[0] != '/')
+    if (!path || !*path)
         return -1;
 
-    // Trim trailing slashes
-    size_t path_len = strlen(path);
-    while (path_len > 1 && path[path_len - 1] == '/')
-        path_len--;
+    uint32_t current_cluster;
+    fat32_dir_entry_t parent_stack[MAX_PATH_DEPTH];
+    int depth = 0;
 
-    // Root path special case
-    if (path_len == 1 && path[0] == '/')
+    // Choose absolute vs relative
+    if (path[0] == '/')
     {
-        if (parent)
-            memset(parent, 0, sizeof(*parent)); // Root has no parent
-        memset(dir_entry, 0, sizeof(*dir_entry));
-        dir_entry->attr = DIRECTORY;
-        dir_entry->first_cluster_high = (fat32_info.root_cluster >> 16) & 0xFFFF;
-        dir_entry->first_cluster_low = fat32_info.root_cluster & 0xFFFF;
-        return 0;
+        current_cluster = fat32_info.root_cluster;
+        path++; // skip '/'
+    }
+    else
+    {
+        current_cluster = current_directory_cluster;
     }
 
-    // Start from root
-    uint32_t current_cluster = fat32_info.root_cluster;
-    fat32_dir_entry_t last_parent = {0};
-    last_parent.attr = DIRECTORY;
-    last_parent.first_cluster_high = (current_cluster >> 16) & 0xFFFF;
-    last_parent.first_cluster_low = current_cluster & 0xFFFF;
+    fat32_dir_entry_t current_dir = {0};
+    current_dir.attr = DIRECTORY;
+    current_dir.first_cluster_high = (current_cluster >> 16) & 0xFFFF;
+    current_dir.first_cluster_low = current_cluster & 0xFFFF;
 
-    char component[256]; // Max path component size
-
-    const char *p = path + 1; // Skip initial '/'
-    while (*p)
+    char component[256];
+    while (*path)
     {
-        // Skip redundant slashes
-        while (*p == '/')
-            p++;
+        // Skip slashes
+        while (*path == '/')
+            path++;
 
-        // Extract component
-        const char *start = p;
-        while (*p && *p != '/')
-            p++;
+        if (!*path)
+            break;
 
-        size_t len = p - start;
+        // Extract path component
+        const char *start = path;
+        while (*path && *path != '/')
+            path++;
+
+        size_t len = path - start;
         if (len == 0 || len > 255)
             return -1;
 
         memcpy(component, start, len);
         component[len] = '\0';
 
-        // Convert to FAT 8.3
+        if (strcmp(component, ".") == 0)
+        {
+            continue; // No change
+        }
+        else if (strcmp(component, "..") == 0)
+        {
+            // Backtrack one level
+            if (depth > 0)
+            {
+                depth--;
+                current_dir = parent_stack[depth];
+                current_cluster = (current_dir.first_cluster_high << 16) | current_dir.first_cluster_low;
+            }
+            else
+            {
+                // Already at root — stay there
+                current_cluster = fat32_info.root_cluster;
+                current_dir.attr = DIRECTORY;
+                current_dir.first_cluster_high = (current_cluster >> 16) & 0xFFFF;
+                current_dir.first_cluster_low = current_cluster & 0xFFFF;
+            }
+            continue;
+        }
+
+        // Convert to FAT 8.3 name
         char fat_name[11];
         if (!string_to_fat83(component, fat_name))
             return -1;
 
-        // Search directory
-        fat32_dir_entry_t entry;
-        if (!fat32_search_directory(current_cluster, fat_name, &entry))
+        // Search current cluster for entry
+        fat32_dir_entry_t found;
+        if (!fat32_search_directory(current_cluster, fat_name, &found))
             return -1;
 
-        // Final component
-        if (*p == '\0')
-        {
-            if (dir_entry)
-                memcpy(dir_entry, &entry, sizeof(fat32_dir_entry_t));
-            if (parent)
-                memcpy(parent, &last_parent, sizeof(fat32_dir_entry_t));
-            return 0;
-        }
-
-        // Not last: must be directory
-        if (!(entry.attr == DIRECTORY))
+        // Push current as parent before descending
+        if (depth >= MAX_PATH_DEPTH)
             return -1;
 
-        current_cluster = (entry.first_cluster_high << 16) | entry.first_cluster_low;
-        if (parent)
-            memcpy(&last_parent, &entry, sizeof(last_parent));
+        parent_stack[depth++] = current_dir;
+
+        // Update current
+        current_dir = found;
+        current_cluster = (found.first_cluster_high << 16) | found.first_cluster_low;
+
+        // If not last component, must be directory
+        if (*path != '\0' && !(found.attr & DIRECTORY))
+            return -1;
     }
 
-    return -1;
+    if (dir_entry)
+        memcpy(dir_entry, &current_dir, sizeof(*dir_entry));
+    if (parent)
+        memcpy(parent, (depth > 0) ? &parent_stack[depth - 1] : &(fat32_dir_entry_t){0}, sizeof(*parent));
+
+    return 0;
 }
 
 int8_t fat32_seek(int8_t fd, int32_t _offset, seek_op_t op)
@@ -1243,41 +1265,6 @@ int8_t fat32_stat(const char *path, fat32_dir_entry_t *out)
     return fat32_get_dir_entry(path, out, NULL);
 }
 
-int8_t read_dir_entries(uint32_t partition_lba)
+int8_t fat32_read_directory(const char *path)
 {
-    uint32_t root_cluster = fat32_info.root_cluster;
-    uint32_t lba = cluster_to_lba(root_cluster);
-    uint32_t sectors = fat32_info.sectors_per_cluster;
-    uint8_t sector[SECTOR_SIZE];
-
-    for (uint32_t s = 0; s < sectors; ++s)
-    {
-        if (sd_read_block(lba + s, sector) != 0)
-        {
-            printf("Failed to read directory sector\n");
-            return -1;
-        }
-
-        for (int i = 0; i < SECTOR_SIZE; i += 32)
-        {
-            fat32_dir_entry_t *entry = (fat32_dir_entry_t *)&sector[i];
-
-            if (entry->name[0] == 0x00)
-                return 0; // No more entries
-            if ((uint8_t)entry->name[0] == ENTRY_UNUSED)
-                continue; // Deleted
-            if (entry->attr == LONG_FILENAME)
-                continue; // Long filename entry
-
-            char name[12];
-            memcpy(name, entry->name, 11);
-            name[11] = '\0';
-
-            // Insert dot for 8.3 format
-            for (int j = 0; j < 11; ++j)
-                if (name[j] == ' ')
-                    name[j] = '\0';
-            printf("File: %.11s Size: %u bytes\n", name, entry->file_size);
-        }
-    }
 }
