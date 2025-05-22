@@ -1,4 +1,5 @@
 #include "kernel/shell/commands.h"
+#include "kernel/printk.h"
 
 int8_t chdir(const char *path)
 {
@@ -15,5 +16,8 @@ int8_t chdir(const char *path)
 
 int8_t ls(const char *path)
 {
-    fat32_dir_entry_t entry;
+    char *s = fat32_read_directory(path);
+    printk("%s", s);
+    kfree(s);
+    s = NULL;
 }

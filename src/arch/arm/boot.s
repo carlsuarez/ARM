@@ -43,7 +43,7 @@ zero_bss:
     orr r0, r0, #0x1F        /* System mode (0b11111) */
     msr cpsr_c, r0
 
-    ldr sp, =_stack_top      /* Regular task stack */
+    ldr sp, =_kernel_stack_top      /* Regular task stack */
 
     /* Jump to main kernel entry */
     bl kernel_main

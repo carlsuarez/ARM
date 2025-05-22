@@ -31,28 +31,32 @@ SECTIONS {
         _bss_end = .;
     }
 
-    /* Heap (aligned to 4KB, 64 KB total) */
+    /* --- Kernel Heap (for kmalloc, slab allocators, etc) --- */
     . = ALIGN(4096);
-    _heap_start = .;
+    _kernel_heap_start = .;
     . = . + 0x10000; /* 64 KB */
-    _heap_end = .;
+    _kernel_heap_end = .;
 
-    /* Kernel Stack (4KB) */
+    /* --- Buddy Allocator Pool (for user task memory, etc) --- */
     . = ALIGN(4096);
-    _stack_bottom = .;
-    . = . + 0x1000;
-    _stack_top = .;
+    _buddy_pool_start = .;
+    . = . + 0x40000; /* 256 KB */
+    _buddy_pool_end = .;
 
-    /* IRQ Stack (1KB) */
+    /* --- Stacks --- */
+    . = ALIGN(4096);
+    _kernel_stack_bottom = .;
+    . = . + 0x1000; /* 4KB */
+    _kernel_stack_top = .;
+
     . = ALIGN(4096);
     _irq_stack_bottom = .;
-    . = . + 0x400;
+    . = . + 0x400;  /* 1KB */
     _irq_stack_top = .;
 
-    /* SVC Stack (1KB) */
     . = ALIGN(4096);
     _svc_stack_bottom = .;
-    . = . + 0x400;
+    . = . + 0x400;  /* 1KB */
     _svc_stack_top = .;
 
     /* For data relocation (copying from flash to RAM) */

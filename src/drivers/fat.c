@@ -1265,6 +1265,78 @@ int8_t fat32_stat(const char *path, fat32_dir_entry_t *out)
     return fat32_get_dir_entry(path, out, NULL);
 }
 
-int8_t fat32_read_directory(const char *path)
+char *fat32_read_directory(const char *path)
 {
+    fat32_dir_entry_t dir;
+    if (fat32_get_dir_entry(path, &dir, NULL))
+        return NULL;
+
+    size_t capacity = 128; // Start small, grow as needed
+    size_t length = 0;
+    char *result = (char *)kmalloc(capacity);
+    if (!result)
+        return NULL;
+
+    uint32_t cluster = (dir.first_cluster_high << 16) | dir.first_cluster_low;
+    while (!fat32_is_eoc(cluster))
+    {
+        for (uint8_t i = 0; i < fat32_info.sectors_per_cluster; i++)
+        {
+            uint8_t sector_buf[SECTOR_SIZE];
+            uint32_t lba = cluster_to_lba(cluster) + i;
+            if (sd_read_block(lba, sector_buf))
+                continue;
+
+            for (int j = 0; j < ENTRIES_PER_SECTOR; j++)
+            {
+                fat32_dir_entry_t *entry = (fat32_dir_entry_t *)(sector_buf + j * sizeof(fat32_dir_entry_t));
+                if (entry->name[0] == 0x00)
+                    goto done;
+
+                if ((uint8_t)entry->name[0] == ENTRY_UNUSED || entry->attr == LONG_FILENAME || entry->attr == VOLUME_ID)
+                    continue;
+
+                char filename[13];
+                int k = 0;
+
+                for (int n = 0; n < 8 && entry->name[n] != ' '; n++)
+                    filename[k++] = entry->name[n];
+
+                if (entry->name[8] != ' ')
+                {
+                    filename[k++] = '.';
+                    for (int n = 8; n < 11 && entry->name[n] != ' '; n++)
+                        filename[k++] = entry->name[n];
+                }
+
+                filename[k++] = '\n';
+                filename[k] = '\0';
+
+                // Ensure space for new entry
+                if (length + k + 1 > capacity)
+                {
+                    capacity = capacity * 2 + k; // Grow extra
+                    char *resized = krealloc(result, capacity);
+                    if (!resized)
+                    {
+                        kfree(result);
+                        return NULL;
+                    }
+                    result = resized;
+                }
+
+                for (int c = 0; c < k; c++)
+                    result[length++] = filename[c];
+
+                result[length] = '\0';
+            }
+        }
+        cluster = fat32_traverse(cluster);
+    }
+
+    char *shrunk = NULL;
+
+done:
+    shrunk = krealloc(result, length + 1);
+    return shrunk ? shrunk : result;
 }

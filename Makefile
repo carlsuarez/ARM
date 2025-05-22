@@ -41,7 +41,14 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
 
 # QEMU run
 run: all
-	qemu-system-arm -M integratorcp -cpu arm926 -kernel $(TARGET) -sd $(IMG) -nographic -serial mon:stdio -audiodev none,id=snd0
+	qemu-system-arm \
+	-M integratorcp \
+	-cpu arm926 \
+	-kernel $(TARGET) \
+	-drive file=$(IMG),format=raw,if=sd \
+	-nographic \
+	-serial mon:stdio \
+	-audiodev none,id=snd0
 
 # Clean build output
 clean:

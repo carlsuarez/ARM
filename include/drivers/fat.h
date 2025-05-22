@@ -196,5 +196,6 @@ int8_t fat32_close(int8_t fd);
 int8_t fat32_delete(const char *path);
 int8_t fat32_truncate(int8_t fd, uint32_t new_size);
 int8_t fat32_stat(const char *path, fat32_dir_entry_t *out);
+char *fat32_read_directory(const char *path);
 
 #endif
