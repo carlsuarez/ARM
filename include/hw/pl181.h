@@ -27,8 +27,8 @@ typedef struct
     volatile uint32_t pcell_id[4];
 } mmci_t;
 
-#define MMIC_BASE 0x1C000000
-#define mmci ((mmci_t *)MMIC_BASE) // Base address for MMCI
+#define MMCI_BASE 0x1C000000
+#define mmci ((mmci_t *)MMCI_BASE) // Base address for MMCI
 
 // Power register values
 #define MMCI_POWER_OFF (0 << 0)

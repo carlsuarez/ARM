@@ -48,7 +48,8 @@ run: all
 	-drive file=$(IMG),format=raw,if=sd \
 	-nographic \
 	-serial mon:stdio \
-	-audiodev none,id=snd0
+	-audiodev none,id=snd0 \
+	-d in_asm,mmu -D qemu.log
 
 # Clean build output
 clean:

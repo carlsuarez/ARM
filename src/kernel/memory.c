@@ -1,14 +1,5 @@
 #include "kernel/memory.h"
 
-void *malloc(size_t size)
-{
-    return (void *)0xDEADBEEF; // Placeholder for malloc
-}
-
-void free(void *ptr)
-{
-}
-
 void memset(void *ptr, uint8_t value, size_t num)
 {
     uint8_t *p = (uint8_t *)ptr;

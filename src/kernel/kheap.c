@@ -1,6 +1,8 @@
 #include "kernel/kheap.h"
 
-void kheap_init(void *start, size_t size)
+static block_t *free_list = NULL;
+
+void kheap_init(uintptr_t start, size_t size)
 {
     free_list = (block_t *)start;
     free_list->size = size - sizeof(block_t);
@@ -17,8 +19,8 @@ void *kmalloc(size_t size)
         if (curr->free && size <= curr->size)
         {
 
-            // Don't split if new block would be smaller than MIN_BLOCK_SIZE bytes
-            if (curr->size >= size + sizeof(block_t) + MIN_BLOCK_SIZE)
+            // Don't split if new block would be smaller than MIN_ALLOC_BLOCK_SIZE bytes
+            if (curr->size >= size + sizeof(block_t) + MIN_ALLOC_BLOCK_SIZE)
             {
                 block_t *new_block = (block_t *)((uintptr_t)BLOCK_DATA(curr) + curr->size);
                 new_block->size = curr->size - size - sizeof(block_t);
@@ -100,7 +102,7 @@ void *krealloc(void *ptr, size_t new_size)
 
         // Optionally split if too big
         size_t remaining = curr->size - new_size;
-        if (remaining > sizeof(block_t) + MIN_BLOCK_SIZE) // minimal alloc unit
+        if (remaining > sizeof(block_t) + MIN_ALLOC_BLOCK_SIZE) // minimal alloc unit
         {
             block_t *split = (block_t *)((uintptr_t)BLOCK_DATA(curr) + new_size);
             split->size = remaining - sizeof(block_t);

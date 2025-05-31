@@ -1,6 +1,9 @@
 #include "kernel/buddy.h"
 #include "kernel/memory.h"
 
+// One linked list for each order
+static struct free_block *free_lists[MAX_LEVELS];
+
 void buddy_init()
 {
     uintptr_t heap_start = (uintptr_t)&_buddy_pool_start;

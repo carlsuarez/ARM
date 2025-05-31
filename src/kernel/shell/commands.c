@@ -14,7 +14,7 @@ int8_t chdir(const char *path)
     return 0;
 }
 
-int8_t ls(const char *path)
+void ls(const char *path)
 {
     char *s = fat32_read_directory(path);
     printk("%s", s);

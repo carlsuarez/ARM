@@ -12,6 +12,7 @@
 #include "kernel/buddy.h"
 #include "kernel/kheap.h"
 #include "kernel/shell/commands.h"
+#include "kernel/mmu.h"
 
 extern char _kernel_heap_start;
 extern char _kernel_heap_end;
@@ -47,11 +48,11 @@ int kernel_main(void)
     mmci_card_init();
     fat32_init(0);
 
-    chdir("/DOCS");
-    char *s = fat32_read_directory(".");
+    printk("Welcome to kernel!\n");
 
-    printk("%s", s);
-    kfree(s);
+    uint32_t *pt = (uint32_t *)&_l1_page_table_start;
+    printk("l1_page_table: 0x%x\n", (uintptr_t)pt);
+    printk("first entry: 0x%x\n", *pt);
 
     clf();
     cli();

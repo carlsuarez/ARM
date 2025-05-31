@@ -45,6 +45,43 @@ zero_bss:
 
     ldr sp, =_kernel_stack_top      /* Regular task stack */
 
+    bl init_page_tables
+    ldr r0, =_l1_page_table_start
+    
+    // Invalidate TLB (TLBIALL)
+    mov     r1, #0
+    mcr     p15, 0, r1, c8, c7, 0
+
+    // Set TTBR0 with L1 table base (in r0)
+    mcr     p15, 0, r0, c2, c0, 0
+
+    // Optional: Set TTBCR to 0 (not needed on ARMv5, but safe)
+    mov     r1, #0
+    mcr     p15, 0, r1, c2, c0, 2
+
+    // Set Domain Access Control Register to DOMAIN_MANAGER (all 1s)
+    mov     r1, #0xFFFFFFFF
+    mcr     p15, 0, r1, c3, c0, 0
+
+    // Data Synchronization Barrier (DSB alternative)
+    mov     r1, #0
+    mcr     p15, 0, r1, c7, c10, 4
+
+    // Read SCTLR into r1
+    mrc     p15, 0, r1, c1, c0, 0
+
+    // Set bits: MMU (bit 0), D-cache (bit 2), I-cache (bit 12)
+    orr     r1, r1, #(1 << 0)   // MMU enable
+    orr     r1, r1, #(1 << 2)   // D-cache enable
+    orr     r1, r1, #(1 << 12)  // I-cache enable
+
+    // Write back modified SCTLR
+    mcr     p15, 0, r1, c1, c0, 0
+
+    // Prefetch Flush (ISB alternative)
+    mov     r1, #0
+    mcr     p15, 0, r1, c7, c5, 4
+
     /* Jump to main kernel entry */
     bl kernel_main
 

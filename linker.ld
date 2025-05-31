@@ -59,6 +59,26 @@ SECTIONS {
     . = . + 0x400;  /* 1KB */
     _svc_stack_top = .;
 
+    /* --- MMU Page Tables --- */
+
+    . = ALIGN(16384); /* 16KB alignment for L1 table */
+    _l1_page_table_start = .;
+    .l1pagetable : {
+        KEEP(*(.l1pagetable))  /* Optionally match by section name */
+        . = . + 0x4000;        /* 16 KB */
+    }
+    _l1_page_table_end = .;
+
+    . = ALIGN(1024); /* 1KB alignment for coarse L2 tables */
+    _coarse_pt0_start = .;
+    .coarsept0 : {
+        KEEP(*(.coarsept0))
+        . = . + 0x400;         /* 1 KB */
+    }
+    _coarse_pt0_end = .;
+
+    /* Add more coarse page tables here as needed */
+
     /* For data relocation (copying from flash to RAM) */
     _data_load = LOADADDR(.data);
 

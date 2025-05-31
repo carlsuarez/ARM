@@ -2,6 +2,7 @@
 #include "drivers/mmci.h"
 #include "kernel/printk.h"
 #include "kernel/memory.h"
+#include "kernel/kheap.h"
 #include "lib/string.h"
 
 static struct fat32_info fat32_info;
