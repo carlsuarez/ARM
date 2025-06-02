@@ -77,10 +77,12 @@ SECTIONS {
     }
     _coarse_pt0_end = .;
 
-    /* Add more coarse page tables here as needed */
-
+    /* Final symbol: last used memory address */
+    _kernel_end = .;
+    
     /* For data relocation (copying from flash to RAM) */
     _data_load = LOADADDR(.data);
+
 
     /DISCARD/ : {
         *(.ARM.exidx*)

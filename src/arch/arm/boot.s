@@ -59,8 +59,15 @@ zero_bss:
     mov     r1, #0
     mcr     p15, 0, r1, c2, c0, 2
 
-    // Set Domain Access Control Register to DOMAIN_MANAGER (all 1s)
-    mov     r1, #0xFFFFFFFF
+    // Set Domain Access Control Register
+    /* 
+    Domain 0: Kernel domain, check permissions
+    Domain 1: User domain, do not check permissions
+    Domain 2: Hardware, check permissions
+    Domain 3: Mixed kernel and user, check permissions
+    Domains[5-15]: No access
+    */
+    mov     r1, #0b00000000000000000000000001111101
     mcr     p15, 0, r1, c3, c0, 0
 
     // Data Synchronization Barrier (DSB alternative)
