@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "kernel/task.h"
+#include "kernel/task/task.h"
 #include "lib/printf.h"
 
 #define SYS_EXIT 1

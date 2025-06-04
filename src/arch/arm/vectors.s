@@ -50,7 +50,7 @@ irq_handler:
     /* Check if current task is TERMINATED */
     ldr     r0, =current
     ldr     r1, [r0]            /* r1 = current task */
-    ldr     r2, [r1, #4]  /* r2 = task->state */
+    ldr     r2, [r1, #4]        /* r2 = task->state */
     cmp     r2, #3              /* Check if task is TERMINATED */
     beq     skip_save_context
 

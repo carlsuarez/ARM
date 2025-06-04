@@ -2,7 +2,7 @@
 #define SHELL_COMMANDS_H
 
 #include <stdint.h>
-#include "drivers/fat.h"
+#include "fs/fat32/fat32.h"
 #include "kernel/kheap.h"
 
 int8_t chdir(const char *path);

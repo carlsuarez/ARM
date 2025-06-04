@@ -1,4 +1,4 @@
-#include "drivers/fat.h"
+#include "fs/fat32/fat32.h"
 #include "drivers/mmci.h"
 #include "kernel/printk.h"
 #include "kernel/memory.h"

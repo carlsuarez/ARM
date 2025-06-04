@@ -1,4 +1,4 @@
-#include "kernel/mmu.h"
+#include "arch/arm/mmu.h"
 
 static uint32_t *const l1_page_table = (uint32_t *)&_l1_page_table_start;
 static uint32_t *const coarse_pt0 = (uint32_t *)&_coarse_pt0_start;

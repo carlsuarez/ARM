@@ -1,9 +1,11 @@
-#include "kernel/task.h"
+#include "kernel/task/task.h"
 
-struct task tasks[MAX_TASKS];
-uint8_t current_task = 0;
-uint8_t total_tasks = 0;
-struct task *current = &tasks[0];
+task_t *tasks = NULL;
+static size_t current_task = 0;
+static size_t total_tasks = 0;
+task_t *current = NULL;
+
+static slab_cache_t *cache = NULL;
 
 __attribute__((noreturn)) static void task_exit_trampoline(void)
 {
@@ -14,33 +16,37 @@ __attribute__((noreturn)) static void task_exit_trampoline(void)
 
 static void create_dummy(void)
 {
-    task_create(task_exit_trampoline);
-    tasks[0].state = TERMINATED; // Mark dummy task as inactive
+    task_create("dummy", (uintptr_t)task_exit_trampoline);
+    tasks->state = TERMINATED; // Mark dummy task as inactive
 }
 
 void task_init(void)
 {
-    for (int i = 0; i < MAX_TASKS; i++)
-    {
-        for (int j = 0; j < STACK_SIZE; j++)
-            tasks[i].stack[j] = 0xDEADBEEF;
-
-        tasks[i].sp = NULL;
-        tasks[i].state = TERMINATED;
-    }
+    cache = create_slab_cache(sizeof(task_t));
     create_dummy();
 }
 
-void task_create(void (*entry)(void))
+void task_create(char *name, uintptr_t entry)
 {
     if (total_tasks >= MAX_TASKS)
         return;
 
-    struct task *t = &tasks[total_tasks];
+    task_t *new_task = slab_alloc(cache);
 
-    // Set stack pointer to top of stack
-    uint32_t *stack = (uint32_t *)(t->stack + STACK_SIZE);
-    stack = (uint32_t *)((uint32_t)stack & ~0x3); // Word-align the stack
+    task_t **p = &tasks;
+    while (*p)
+        p = &(*p)->next;
+    *p = new_task;
+    new_task->next = NULL;
+
+    // Allocate page for stack
+    uint32_t *stack = alloc_page();
+    new_task->stack_base = (uintptr_t)stack;
+    printk("Stack bottom: 0x%x\n", stack);
+
+    stack += PAGE_SIZE / sizeof(uint32_t); // Move to end of stack
+
+    printk("Stack top: 0x%x\n", stack);
 
     uint32_t *original_sp = stack;
 
@@ -53,10 +59,10 @@ void task_create(void (*entry)(void))
     *(--stack) = (uint32_t)original_sp; // SP_orig
     *(--stack) = (uint32_t)task_exit;   // LR_orig
 
-    t->sp = stack;
-    t->state = READY;
+    new_task->sp = stack;
+    new_task->state = READY;
 
-    total_tasks++;
+    new_task->pid = total_tasks++;
 }
 
 __attribute__((noreturn)) void task_exit(int32_t status)

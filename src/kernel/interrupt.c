@@ -3,7 +3,7 @@
 #include "hw/pic.h"
 #include "drivers/uart.h"
 #include "hw/timer.h"
-#include "kernel/task.h"
+#include "kernel/task/task.h"
 
 void irq_handler_c(void)
 {

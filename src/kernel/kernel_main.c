@@ -3,21 +3,20 @@
 #include "hw/pic.h"
 #include "drivers/timer.h"
 #include "kernel/interrupt.h"
-#include "kernel/task.h"
+#include "kernel/task/task.h"
 #include "lib/syscall.h"
 #include "lib/printf.h"
-#include "lib/task.h"
+#include "lib/libtask.h"
 #include "drivers/mmci.h"
-#include "drivers/fat.h"
+#include "fs/fat32/fat32.h"
 #include "kernel/kheap.h"
 #include "kernel/shell/commands.h"
-#include "kernel/mmu.h"
+#include "arch/arm/mmu.h"
 #include "kernel/page_alloc.h"
 
 // Function prototypes
 void task1(void);
 void task2(void);
-void task3(void);
 
 int kernel_main(void)
 {
@@ -37,9 +36,8 @@ int kernel_main(void)
     init_page_alloc();
 
     task_init();
-    task_create(task1);
-    task_create(task2);
-    task_create(task3);
+    task_create("task 1", (uintptr_t)task1);
+    task_create("task 2", (uintptr_t)task2);
 
     mmci_card_init();
     fat32_init(0);
@@ -92,15 +90,5 @@ void task2(void)
     const uint8_t x = 2, y = 3;
     printf("Task 2 is running\n");
     printf("x + y = %d\n", x + y);
-    exit();
-}
-
-void task3(void)
-{
-    const double pi = 3.14159265358979323846;
-    printf("Task 3 is running\n");
-    printf("Value of pi: %f\n", pi);
-    for (volatile uint32_t i = 0; i < 1e7; i++)
-        ;
     exit();
 }
