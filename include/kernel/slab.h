@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "kernel/kheap.h"
+#include "kernel/page_alloc.h"
 
 typedef struct slab_header
 {

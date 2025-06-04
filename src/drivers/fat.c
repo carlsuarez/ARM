@@ -8,14 +8,22 @@
 static struct fat32_info fat32_info;
 static uint32_t current_fat_sector = UINT32_MAX; // Garbage value
 static uint8_t fat_sector[SECTOR_SIZE];
-static fat32_file_t file_table[MAX_OPEN_FILES];
 uint32_t current_directory_cluster;
+
+static fat32_file_t *file_table = NULL;
+static size_t num_active_files = 0;
+static slab_cache_t *cache = NULL;
 
 static fat32_file_t *get_file_by_fd(int8_t fd)
 {
-    if (fd < 0 || fd >= MAX_OPEN_FILES || !file_table[fd].in_use)
+    if (fd < 0 || fd >= num_active_files)
         return NULL;
-    return &file_table[fd];
+
+    fat32_file_t *file = file_table;
+    for (size_t i = 0; i < fd; i++)
+        file = file->next;
+
+    return file;
 }
 
 /**
@@ -566,7 +574,7 @@ int8_t fat32_seek(int8_t fd, int32_t _offset, seek_op_t op)
 {
     fat32_file_t *file = get_file_by_fd(fd);
 
-    if (!file || !file->in_use)
+    if (!file)
         return -1;
 
     uint32_t file_size = file->entry.file_size;
@@ -612,7 +620,7 @@ int8_t fat32_seek(int8_t fd, int32_t _offset, seek_op_t op)
 int32_t fat32_read(int8_t fd, void *buf, size_t size)
 {
     fat32_file_t *file = get_file_by_fd(fd);
-    if (!file || !file->in_use)
+    if (!file)
         return -1;
 
     uint32_t file_size = file->entry.file_size;
@@ -683,19 +691,36 @@ int32_t fat32_read(int8_t fd, void *buf, size_t size)
  */
 static int8_t fat32_add_to_file_table(fat32_dir_entry_t *dir_entry, fat32_dir_entry_t *parent)
 {
-    for (int i = 0; i < MAX_OPEN_FILES; ++i)
+    if (num_active_files >= MAX_OPEN_FILES)
+        return -1;
+
+    fat32_file_t *new_file = (fat32_file_t *)slab_alloc(cache);
+
+    memcpy(&new_file->entry, dir_entry, sizeof(fat32_dir_entry_t));
+    new_file->parent_cluster = (parent->first_cluster_high << 16) | parent->first_cluster_low;
+    new_file->current_cluster = (dir_entry->first_cluster_high << 16) | dir_entry->first_cluster_low;
+    new_file->position = 0;
+
+    fat32_file_t *curr = file_table, *prev = NULL;
+
+    int8_t i = 0;
+    for (; i < num_active_files; i++)
     {
-        if (!file_table[i].in_use)
-        {
-            memcpy(&file_table[i].entry, dir_entry, sizeof(fat32_dir_entry_t));
-            file_table[i].parent_cluster = (parent->first_cluster_high << 16) | parent->first_cluster_low;
-            file_table[i].current_cluster = (dir_entry->first_cluster_high << 16) | dir_entry->first_cluster_low;
-            file_table[i].position = 0;
-            file_table[i].in_use = 1;
-            return i;
-        }
+        prev = curr;
+        curr = curr->next;
     }
-    return -1;
+
+    if (prev)
+    {
+        prev->next = new_file;
+        new_file->next = NULL;
+    }
+    else
+        file_table = new_file;
+
+    num_active_files++;
+
+    return i;
 }
 
 /**
@@ -872,6 +897,10 @@ int8_t fat32_init(uint32_t partition_lba)
 
     current_directory_cluster = fat32_info.root_cluster;
     load_fat_sector(0);
+
+    // Create slab for file_t
+    cache = create_slab_cache(sizeof(fat32_file_t));
+
     return 0;
 }
 
@@ -889,14 +918,28 @@ int8_t fat32_open(const char *path)
 
 int8_t fat32_close(int8_t fd)
 {
-    if (fd < 0 || fd >= MAX_OPEN_FILES)
+    if (fd < 0 || fd >= num_active_files)
         return -1;
 
-    fat32_file_t *file = get_file_by_fd(fd);
-    if (!file->in_use)
-        return -1;
+    fat32_file_t *file = file_table, *prev = NULL;
+    for (size_t i = 0; i < fd; i++)
+    {
+        prev = file;
+        file = file->next;
+    }
 
-    memset(file, 0, sizeof(fat32_file_t)); // Fully reset the struct
+    if (file == file_table)
+    {
+        if (file->next)
+            file_table = file->next;
+        else
+            file_table = NULL;
+    }
+    else
+        prev->next = file->next;
+
+    slab_free(cache, file);
+
     return 0;
 }
 
@@ -1180,13 +1223,14 @@ int8_t fat32_delete(const char *path)
     }
 
     // --- (4) Check that file is not in use
-    for (int8_t i = 0; i < MAX_OPEN_FILES; i++)
+    for (size_t i = 0; i < num_active_files; i++)
     {
-        fat32_file_t *file = &file_table[i];
-        if (memcmp(&entry, &file->entry, sizeof(fat32_dir_entry_t)) == 0 && file->in_use)
+        fat32_file_t *file = file_table;
+        if (memcmp(&entry, &file->entry, sizeof(fat32_dir_entry_t)) == 0)
         {
             return -1; // Cannot delete open file
         }
+        file = file->next;
     }
 
     // --- (5) Set the dir entry to be unused/deleted

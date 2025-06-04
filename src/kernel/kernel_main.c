@@ -9,13 +9,10 @@
 #include "lib/task.h"
 #include "drivers/mmci.h"
 #include "drivers/fat.h"
-#include "kernel/buddy.h"
 #include "kernel/kheap.h"
 #include "kernel/shell/commands.h"
 #include "kernel/mmu.h"
-
-extern char _kernel_heap_start;
-extern char _kernel_heap_end;
+#include "kernel/page_alloc.h"
 
 // Function prototypes
 void task1(void);
@@ -36,9 +33,8 @@ int kernel_main(void)
 
     pic->IRQ_ENABLESET = PIC_TIMERINT1 | PIC_UARTINT0 | PIC_UARTINT1;
 
-    const size_t heap_size = (uintptr_t)&_kernel_heap_end - (uintptr_t)&_kernel_heap_start;
-
-    kheap_init((uintptr_t)&_kernel_heap_start, heap_size);
+    kheap_init((uintptr_t)&_kernel_heap_start);
+    init_page_alloc();
 
     task_init();
     task_create(task1);
@@ -48,11 +44,32 @@ int kernel_main(void)
     mmci_card_init();
     fat32_init(0);
 
-    printk("Welcome to kernel!\n");
+    uint32_t *l1 = (uint32_t *)&_l1_page_table_start;
+    uint32_t *cpt = (uint32_t *)&_coarse_pt0_start;
+    printk("l1_page_table: 0x%x\n", (uint32_t)l1);
+    printk("first entry: 0x%x\n", *l1);
+    printk("coarse_pt0: 0x%x\n", (uint32_t)cpt);
 
-    uint32_t *pt = (uint32_t *)&_l1_page_table_start;
-    printk("l1_page_table: 0x%x\n", (uintptr_t)pt);
-    printk("first entry: 0x%x\n", *pt);
+    int8_t fd = fat32_open("/docs/info.txt");
+    printk("fd: %d\n", fd);
+    char buf[256];
+    int32_t ret = fat32_read(fd, buf, sizeof(buf));
+    printk("Return val: %d. Contents:\n%s\n", ret, buf);
+
+    uint8_t *page = alloc_page();
+    memset(page, 0xAB, PAGE_SIZE);
+    printk("Page address: 0x%x\n", (uint32_t)page);
+    printk("First value: %x\n", *page);
+    uint8_t *page2 = alloc_page();
+    memset(page2, 0xDE, PAGE_SIZE);
+    printk("Page address: 0x%x\n", (uint32_t)page2);
+    printk("First value: %x\n", *page2);
+
+    free_page(page);
+    printk("Page after free: %u\n", *page);
+
+    free_page(page2);
+    printk("Page after free: %u\n", *page2);
 
     clf();
     cli();

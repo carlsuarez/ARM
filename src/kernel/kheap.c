@@ -1,129 +1,154 @@
 #include "kernel/kheap.h"
 
-static block_t *free_list = NULL;
+// One linked list for each order
+static struct free_block *free_lists[MAX_LEVELS];
 
-void kheap_init(uintptr_t start, size_t size)
+struct block_header
 {
-    free_list = (block_t *)start;
-    free_list->size = size - sizeof(block_t);
-    free_list->next = NULL;
-    free_list->free = true;
+    uint8_t order;
+};
+
+void kheap_init(uintptr_t start)
+{
+    // Initially, the entire memory is one free block
+    free_lists[MAX_LEVELS - 1] = (struct free_block *)start;
+    free_lists[MAX_LEVELS - 1]->next = NULL;
 }
 
 void *kmalloc(size_t size)
 {
-    block_t *curr = free_list;
+    if (size < MIN_BLOCK_SIZE)
+        size = MIN_BLOCK_SIZE;
 
-    while (curr != NULL)
+    // Add space for header
+    size += sizeof(struct block_header);
+
+    size_t k = 0;
+    size_t block_size = MIN_BLOCK_SIZE;
+    while (block_size < size)
     {
-        if (curr->free && size <= curr->size)
-        {
-
-            // Don't split if new block would be smaller than MIN_ALLOC_BLOCK_SIZE bytes
-            if (curr->size >= size + sizeof(block_t) + MIN_ALLOC_BLOCK_SIZE)
-            {
-                block_t *new_block = (block_t *)((uintptr_t)BLOCK_DATA(curr) + curr->size);
-                new_block->size = curr->size - size - sizeof(block_t);
-                new_block->next = curr->next;
-                new_block->free = true;
-
-                curr->size = size;
-                curr->next = new_block;
-            }
-
-            curr->free = false;
-            return BLOCK_DATA(curr);
-        }
-
-        curr = curr->next;
+        block_size <<= 1;
+        k++;
     }
 
-    return NULL;
-}
+    // Find the first non-empty free list >= k
+    size_t level = k;
+    while (level < MAX_LEVELS && free_lists[level] == NULL)
+        level++;
 
-static void coalesce(void)
-{
-    block_t *curr = free_list;
+    if (level >= MAX_LEVELS)
+        return NULL; // Out of memory
 
-    while (curr != NULL && curr->next != NULL)
+    // Split blocks until we reach the desired level
+    while (level > k)
     {
-        if (curr->free && curr->next->free)
-        {
-            block_t *next = curr->next;
+        // Pop head of linked list
+        struct free_block *block = free_lists[level];
+        free_lists[level] = block->next;
 
-            // Merge curr and next
-            curr->size += sizeof(block_t) + next->size;
-            curr->next = next->next;
-            // Don't advance curr — check again in case multiple free blocks in a row
-        }
-        else
-        {
-            curr = curr->next;
-        }
+        // Split into two buddies
+        size_t buddy_size = (1 << (level - 1 + 5));                                      // + 5 because min is 32
+        struct free_block *buddy = (struct free_block *)((uintptr_t)block + buddy_size); // Calculate address of buddy
+
+        /* Add both buddies to the lower level */
+        //* Put next point in free block (not being used so no problems!)
+        buddy->next = free_lists[level - 1];
+        free_lists[level - 1] = buddy;
+        block->next = free_lists[level - 1];
+        free_lists[level - 1] = block;
+
+        level--;
     }
+
+    // Take the first block from the free list
+    struct free_block *allocated_block = free_lists[level];
+    free_lists[level] = allocated_block->next;
+
+    // Store order in header
+    struct block_header *header = (struct block_header *)allocated_block;
+    header->order = (uint8_t)level;
+
+    return (void *)(header + 1); // Return memory after header
 }
 
 void kfree(void *ptr)
 {
-    if (!ptr)
+    if (ptr == NULL)
         return;
 
-    block_t *block = DATA_BLOCK(ptr);
+    struct block_header *header = ((struct block_header *)ptr) - 1;
+    size_t k = header->order;
+    size_t block_size = MIN_BLOCK_SIZE << k;
 
-    block->free = true;
+    struct free_block *block = (struct free_block *)header;
+    block->next = free_lists[k];
+    free_lists[k] = block;
 
-    coalesce();
+    // Try to merge with buddy
+    while (k < MAX_LEVELS - 1)
+    {
+        struct free_block *buddy = (struct free_block *)((uintptr_t)block ^ block_size); // Caclculate address of buddy
+        struct free_block *prev = NULL;
+        struct free_block *curr = free_lists[k];
+
+        // Search for buddy in free list
+        while (curr != NULL && curr != buddy)
+        {
+            prev = curr;
+            curr = curr->next;
+        }
+
+        if (curr != buddy)
+            break; // Buddy not free, can't merge
+
+        // Remove buddy from free list
+        if (prev == NULL)
+            free_lists[k] = buddy->next;
+        else
+            prev->next = buddy->next;
+
+        // Merge block and buddy into a larger block
+        if (block > buddy)
+            block = buddy;
+
+        // Move to the next level
+        k++;
+        block_size <<= 1;
+        block->next = free_lists[k];
+        free_lists[k] = block;
+    }
 }
 
 void *krealloc(void *ptr, size_t new_size)
 {
     if (!ptr)
-        return kmalloc(new_size);
+        return kmalloc(new_size); // realloc(NULL, size) is malloc
 
+    size_t old_size = 1 << ((struct block_header *)ptr - 1)->order;
     if (new_size == 0)
     {
         kfree(ptr);
         return NULL;
     }
 
-    block_t *curr = DATA_BLOCK(ptr);
-    size_t current_size = curr->size;
+    // If the new size fits in the current allocation, keep it
+    size_t block_size = MIN_BLOCK_SIZE;
+    while (block_size < old_size)
+        block_size <<= 1;
 
-    if (new_size <= current_size)
-        return ptr; // Shrinking, no need to move
+    if (new_size <= block_size)
+        return ptr;
 
-    // Try to expand into the next free block
-    block_t *next = curr->next;
-    if (next && next->free && (current_size + sizeof(block_t) + next->size) >= new_size)
-    {
-        // Merge current and next
-        curr->size += sizeof(block_t) + next->size;
-        curr->next = next->next;
-
-        // Optionally split if too big
-        size_t remaining = curr->size - new_size;
-        if (remaining > sizeof(block_t) + MIN_ALLOC_BLOCK_SIZE) // minimal alloc unit
-        {
-            block_t *split = (block_t *)((uintptr_t)BLOCK_DATA(curr) + new_size);
-            split->size = remaining - sizeof(block_t);
-            split->free = true;
-            split->next = curr->next;
-
-            curr->size = new_size;
-            curr->next = split;
-        }
-
-        return BLOCK_DATA(curr);
-    }
-
-    // Fallback: allocate and copy
+    // Allocate new block
     void *new_ptr = kmalloc(new_size);
     if (!new_ptr)
-        return NULL;
+        return NULL; // allocation failed
 
-    for (size_t i = 0; i < current_size; i++)
-        ((uint8_t *)new_ptr)[i] = ((uint8_t *)ptr)[i];
+    // Copy old data to new block
+    memcpy(new_ptr, ptr, old_size);
 
+    // Free old block
     kfree(ptr);
+
     return new_ptr;
 }

@@ -34,19 +34,13 @@ SECTIONS {
     /* --- Kernel Heap (for kmalloc, slab allocators, etc) --- */
     . = ALIGN(4096);
     _kernel_heap_start = .;
-    . = . + 0x10000; /* 64 KB */
+    . = . + 0x20000; /* 128 KB */
     _kernel_heap_end = .;
-
-    /* --- Buddy Allocator Pool (for user task memory, etc) --- */
-    . = ALIGN(4096);
-    _buddy_pool_start = .;
-    . = . + 0x40000; /* 256 KB */
-    _buddy_pool_end = .;
 
     /* --- Stacks --- */
     . = ALIGN(4096);
     _kernel_stack_bottom = .;
-    . = . + 0x1000; /* 4KB */
+    . = . + 0x2000; /* 8KB */
     _kernel_stack_top = .;
 
     . = ALIGN(4096);
@@ -76,14 +70,18 @@ SECTIONS {
         . = . + 0x400;         /* 1 KB */
     }
     _coarse_pt0_end = .;
+    
+    /* --- Buddy Allocator Pool (for user task memory, etc) --- */
+    . = ALIGN(0x100000);
+    _free_pages_start = .;
+    . = . + 0x100000; /* 1 MB */
+    _free_pages_end = .;
 
     /* Final symbol: last used memory address */
     _kernel_end = .;
-    
+
     /* For data relocation (copying from flash to RAM) */
     _data_load = LOADADDR(.data);
-
-
     /DISCARD/ : {
         *(.ARM.exidx*)
         *(.ARM.extab*)

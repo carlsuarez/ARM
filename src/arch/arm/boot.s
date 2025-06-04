@@ -67,8 +67,9 @@ zero_bss:
     Domain 3: Mixed kernel and user, check permissions
     Domains[5-15]: No access
     */
-    mov     r1, #0b00000000000000000000000001111101
-    mcr     p15, 0, r1, c3, c0, 0
+    mov r1, #0xFFFFFFFF
+    mcr  p15, 0, r1, c3, c0, 0  @ Write to DACR
+
 
     // Data Synchronization Barrier (DSB alternative)
     mov     r1, #0
@@ -89,6 +90,7 @@ zero_bss:
     mov     r1, #0
     mcr     p15, 0, r1, c7, c5, 4
 
+kernel:
     /* Jump to main kernel entry */
     bl kernel_main
 

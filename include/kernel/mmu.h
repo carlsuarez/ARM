@@ -8,6 +8,8 @@
 #include "hw/pl181.h"
 #include "hw/pic.h"
 #include "hw/timer.h"
+#include "kernel/memory.h"
+#include "defs.h"
 
 #define NUM_L1_ENTRIES 4096
 #define NUM_L2_ENTRIES 256
@@ -36,11 +38,15 @@
      ((ap0) << 4) |               /* bits 5:4 = AP0 bits */             \
      L2_TYPE_SMALL)               /* bits 1:0 = 0b10 for small page */
 
+#define IDENTITY_MAP_L1(virt_addr) ((virt_addr) >> 20)
+
 #define DOMAIN_KERNEL 0
 #define DOMAIN_USER 1
 #define DOMAIN_HW 2
 #define DOMAIN_MIXED 3
 #define DOMAIN_NO_ACCESS 15
+
+#define FREE_PAGES_VA_BASE (&_free_pages_start)
 
 static inline void set_s_bit(void)
 {
@@ -78,14 +84,7 @@ static inline void clear_r_bit(void)
 #define AP_USER_READ 2
 #define AP_USER_RW 3
 
-extern char _l1_page_table_start;
-extern char _coarse_pt0_start;
-
-extern char _buddy_pool_start;
-extern char _buddy_pool_end;
-
-extern char _kernel_end;
-
 void init_page_tables(void);
+int8_t set_page_ap(uintptr_t coarse_pt, uint8_t page_index, uint8_t ap);
 
 #endif

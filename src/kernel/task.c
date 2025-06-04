@@ -62,9 +62,8 @@ void task_create(void (*entry)(void))
 __attribute__((noreturn)) void task_exit(int32_t status)
 {
     current->state = TERMINATED;
-    uart_puts(uart0, "Task exiting with exit code: ");
-    uart_puthex(uart0, status);
-    uart_puts(uart0, "\n");
+    printk("Task exiting with exit code: %d\n", status);
+
     cli(); // Enable interrupts
     while (1)
         ;
@@ -74,7 +73,7 @@ void scheduler(void)
 {
     if (total_tasks == 0)
     {
-        uart_puts(uart0, "No tasks available, entering infinite loop\n");
+        printk("No tasks available, entering infinite loop\n");
         while (1)
             ;
     }
@@ -96,7 +95,7 @@ void scheduler(void)
     {
         if (current->state == TERMINATED)
         {
-            uart_puts(uart0, "No task alive, entering infinite loop\n");
+            printk("No task alive, entering infinite loop\n");
             while (1)
                 ;
         }
@@ -109,9 +108,7 @@ void scheduler(void)
     current_task = next_task;
     current = &tasks[current_task];
 
-    uart_puts(uart0, "Switching to task: ");
-    uart_putc(uart0, '0' + current_task);
-    uart_puts(uart0, "\n");
+    printk("Switching to task: %u\n", current_task);
 
     current->state = RUNNING; // Mark new task as running
 }

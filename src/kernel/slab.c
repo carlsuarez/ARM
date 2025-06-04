@@ -1,5 +1,4 @@
 #include "kernel/slab.h"
-#include "kernel/buddy.h"
 
 slab_cache_t *create_slab_cache(size_t object_size)
 {
@@ -16,7 +15,7 @@ void destroy_slab_cache(slab_cache_t *cache)
     while (slab)
     {
         slab_header_t *next = slab->next;
-        buddy_free(slab, PAGE_SIZE); // Free the entire slab page
+        free_page(slab); // Free the entire slab page
         slab = next;
     }
 
@@ -25,7 +24,7 @@ void destroy_slab_cache(slab_cache_t *cache)
 
 static void slab_add_slab(slab_cache_t *cache)
 {
-    void *slab_memory = buddy_alloc(PAGE_SIZE);
+    void *slab_memory = alloc_page();
     slab_header_t *header = (slab_header_t *)slab_memory;
     header->next = cache->slabs;
     header->used_count = 0;

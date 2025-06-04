@@ -2,7 +2,7 @@
 #define KERNEL_TASK_H
 
 #include <stdint.h>
-#include "drivers/uart.h"
+#include "kernel/printk.h"
 #include "kernel/interrupt.h"
 #include "kernel/memory.h"
 

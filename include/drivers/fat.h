@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include <stdbool.h>
+#include "kernel/slab.h"
 
 #define DIR_ENTRY_SIZE 32
 #define ENTRIES_PER_SECTOR (SECTOR_SIZE / DIR_ENTRY_SIZE)
@@ -71,7 +72,7 @@ typedef struct fat32_file
     uint32_t parent_cluster;
     uint32_t current_cluster;
     uint32_t position;
-    uint8_t in_use;
+    struct fat32_file *next;
 } fat32_file_t;
 
 /**
