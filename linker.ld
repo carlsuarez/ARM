@@ -1,89 +1,112 @@
 ENTRY(_vectors)
 
-SECTIONS {
-    /* Vector table at address 0x00000000 */
-    . = 0x00000000;
+MEMORY
+{
+    ROM (rx)  : ORIGIN = 0x00000000, LENGTH = 32K
+    RAM (rwx) : ORIGIN = 0x00008000, LENGTH = 2M
+}
 
+SECTIONS
+{
+    /* Vector table at 0x00000000 (ROM region) */
+    . = ORIGIN(ROM);
     .vectors : {
         KEEP(*(.vectors))
-    }
+    } > ROM
 
-    /* Kernel code starts at 0x8000 */
-    . = 0x8000;
+    /* Main kernel code/data starts at 0x8000 */
+    . = ORIGIN(RAM);
 
-    .text : {
-        *(.text*)
-    }
+    .text : ALIGN(4) {
+        _text_start = .;
+        *(.text)
+        *(.text.*)
+        _text_end = .;
+    } > RAM
 
-    .rodata : {
-        *(.rodata*)
-    }
+    .rodata : ALIGN(4) {
+        _rodata_start = .;
+        *(.rodata)
+        *(.rodata.*)
+        _rodata_end = .;
+    } > RAM
 
-    .data : AT(ADDR(.rodata) + SIZEOF(.rodata)) {
+    .data : ALIGN(4) {
         _data_start = .;
-        *(.data*)
+        *(.data)
+        *(.data.*)
         _data_end = .;
-    }
+    } > RAM
+    _data_load = LOADADDR(.data);
 
-    .bss : {
+    .bss : ALIGN(4) {
         _bss_start = .;
-        *(.bss*)
+        *(.bss)
+        *(COMMON)
         _bss_end = .;
-    }
+    } > RAM
 
-    /* --- Kernel Heap (for kmalloc, slab allocators, etc) --- */
+    /* Heap section (128KB) */
     . = ALIGN(4096);
-    _kernel_heap_start = .;
-    . = . + 0x20000; /* 128 KB */
-    _kernel_heap_end = .;
+    .kheap : {
+        _kernel_heap_start = .;
+        KEEP(*(.kheap))
+        . = . + 0x20000; /* 128 KB */
+        _kernel_heap_end = .;
+    } > RAM
 
-    /* --- Stacks --- */
-    . = ALIGN(4096);
-    _kernel_stack_bottom = .;
-    . = . + 0x2000; /* 8KB */
-    _kernel_stack_top = .;
 
     . = ALIGN(4096);
-    _irq_stack_bottom = .;
-    . = . + 0x400;  /* 1KB */
-    _irq_stack_top = .;
+    .stack : {
+        /* Kernel stack (8KB) */
+        _kernel_stack_bottom = .;
+        KEEP(*(.stack))
+        . = . + 0x2000; /* 8 KB */
+        _kernel_stack_top = .;
 
-    . = ALIGN(4096);
-    _svc_stack_bottom = .;
-    . = . + 0x400;  /* 1KB */
-    _svc_stack_top = .;
+        /* IRQ stack (1KB) */
+        . = ALIGN(4096);
+        _irq_stack_bottom = .;
+        . = . + 0x400;
+        _irq_stack_top = .;
 
-    /* --- MMU Page Tables --- */
+        /* SVC stack (1KB) */
+        . = ALIGN(4096);
+        _svc_stack_bottom = .;
+        . = . + 0x400;
+        _svc_stack_top = .;
+    } > RAM
 
-    . = ALIGN(16384); /* 16KB alignment for L1 table */
-    _l1_page_table_start = .;
+    /* MMU L1 page table (16KB aligned) */
+    . = ALIGN(16384);
     .l1pagetable : {
-        KEEP(*(.l1pagetable))  /* Optionally match by section name */
-        . = . + 0x4000;        /* 16 KB */
-    }
-    _l1_page_table_end = .;
+        _l1pagetable_start = .;
+        KEEP(*(.l1pagetable))
+        . = . + 0x4000; /* 16KB space */
+        _l1pagetable_end = .;
+    } > RAM
 
-    . = ALIGN(1024); /* 1KB alignment for coarse L2 tables */
-    _coarse_pt0_start = .;
+    /* L2 coarse table (1KB aligned) */
+    . = ALIGN(1024);
+    _coarsept0_start = .;
     .coarsept0 : {
         KEEP(*(.coarsept0))
-        . = . + 0x400;         /* 1 KB */
-    }
-    _coarse_pt0_end = .;
-    
-    /* --- Buddy Allocator Pool (for user task memory, etc) --- */
+    } > RAM
+    _coarsept0_end = .;
+
+    /* 1 MB Buddy Allocator Pool */
     . = ALIGN(0x100000);
     _free_pages_start = .;
-    . = . + 0x100000; /* 1 MB */
+    . = . + 0x100000;
     _free_pages_end = .;
 
-    /* Final symbol: last used memory address */
+    /* End of kernel */
     _kernel_end = .;
 
-    /* For data relocation (copying from flash to RAM) */
-    _data_load = LOADADDR(.data);
     /DISCARD/ : {
         *(.ARM.exidx*)
         *(.ARM.extab*)
+        *(.comment)
+        *(.debug_gdb_scripts*)
     }
 }

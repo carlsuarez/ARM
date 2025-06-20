@@ -3,36 +3,37 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "kernel/printk.h"
+#include "libc/kernel/printk.h"
 #include "kernel/interrupt.h"
-#include "kernel/memory.h"
-#include "kernel/slab.h"
-#include "kernel/page_alloc.h"
+#include "libc/common/memory.h"
+#include "libc/kernel/slab.h"
+#include "libc/kernel/page_alloc.h"
 
 #define MAX_TASKS 4
-
-typedef enum task_state
-{
-    RUNNING,
-    READY,
-    BLOCKED,
-    TERMINATED
-} task_state_t;
 
 typedef struct task
 {
     uint32_t *sp;
-    task_state_t state;
+    enum
+    {
+        RUNNING,
+        READY,
+        BLOCKED,
+        TERMINATED
+    } state;
     uint32_t pid;
     uintptr_t stack_base;
-    uint32_t *coarse_pt;
+    size_t num_pages;
+    uintptr_t coarse_pt; // physical address
+    uintptr_t va_base;
+    char name[11];
     struct task *next;
 } task_t;
 
 extern task_t *current;
 
 void task_init(void);
-void task_create(char *name, uintptr_t entry);
+task_t *task_create(uintptr_t entry);
 __attribute__((noreturn)) void task_exit(int32_t status);
 void scheduler(void);
 

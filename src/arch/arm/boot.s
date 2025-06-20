@@ -1,3 +1,17 @@
+.section .l1pagetable, "aw", %progbits
+.align 14
+
+.global l1_page_table
+l1_page_table:
+    .space 16384
+
+.section .coarsept0, "aw", %progbits
+.align 
+
+.global coarse_pt0
+coarse_pt0:
+    .space 1024
+
 .section .text
 .global _start
 
@@ -46,7 +60,8 @@ zero_bss:
     ldr sp, =_kernel_stack_top      /* Regular task stack */
 
     bl init_page_tables
-    ldr r0, =_l1_page_table_start
+    b kernel
+    ldr r0, =l1_page_table
     
     // Invalidate TLB (TLBIALL)
     mov     r1, #0

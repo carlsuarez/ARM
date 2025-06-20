@@ -2,8 +2,8 @@
 #define SHELL_COMMANDS_H
 
 #include <stdint.h>
-#include "fs/fat32/fat32.h"
-#include "kernel/kheap.h"
+#include "fs/fat/fat32.h"
+#include "libc/kernel/malloc.h"
 
 int8_t chdir(const char *path);
 void ls(const char *path);

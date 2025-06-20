@@ -16,7 +16,7 @@ __attribute__((noreturn)) static void task_exit_trampoline(void)
 
 static void create_dummy(void)
 {
-    task_create("dummy", (uintptr_t)task_exit_trampoline);
+    task_create((uintptr_t)task_exit_trampoline);
     tasks->state = TERMINATED; // Mark dummy task as inactive
 }
 
@@ -26,10 +26,10 @@ void task_init(void)
     create_dummy();
 }
 
-void task_create(char *name, uintptr_t entry)
+task_t *task_create(uintptr_t entry)
 {
     if (total_tasks >= MAX_TASKS)
-        return;
+        return NULL;
 
     task_t *new_task = slab_alloc(cache);
 
@@ -42,11 +42,13 @@ void task_create(char *name, uintptr_t entry)
     // Allocate page for stack
     uint32_t *stack = alloc_page();
     new_task->stack_base = (uintptr_t)stack;
-    printk("Stack bottom: 0x%x\n", stack);
+    printk("Stack bottom: 0x%x", stack);
+    printk("\n");
 
     stack += PAGE_SIZE / sizeof(uint32_t); // Move to end of stack
 
-    printk("Stack top: 0x%x\n", stack);
+    printk("Stack top: 0x%x", stack);
+    printk("\n");
 
     uint32_t *original_sp = stack;
 
@@ -63,11 +65,26 @@ void task_create(char *name, uintptr_t entry)
     new_task->state = READY;
 
     new_task->pid = total_tasks++;
+
+    return new_task;
 }
 
 __attribute__((noreturn)) void task_exit(int32_t status)
 {
     current->state = TERMINATED;
+    set_l1_entry(current->coarse_pt, 0);
+
+    uint32_t *pt = (uint32_t *)current->coarse_pt;
+    for (size_t i = 0; i < current->num_pages; i++)
+    {
+        uintptr_t addr = current->coarse_pt + i * 0x1000;
+        free_page(addr);
+        pt[addr >> 12] = 0;
+    }
+
+    free_page((void *)current->coarse_pt);
+    free_page((void *)current->stack_base);
+    slab_free(cache, current);
     printk("Task exiting with exit code: %d\n", status);
 
     cli(); // Enable interrupts
@@ -78,43 +95,29 @@ __attribute__((noreturn)) void task_exit(int32_t status)
 void scheduler(void)
 {
     if (total_tasks == 0)
-    {
-        printk("No tasks available, entering infinite loop\n");
         while (1)
             ;
-    }
 
-    uint8_t next_task = current_task;
-    uint8_t found = 0;
-
-    for (uint8_t i = 0; i < total_tasks; i++)
+    task_t *next = current;
+    for (size_t i = 0; i < total_tasks; ++i)
     {
-        next_task = (next_task + 1) % total_tasks;
-        if (tasks[next_task].state == READY)
-        {
-            found = 1;
+        next = next->next ? next->next : tasks;
+        if (next->state == READY)
             break;
-        }
     }
 
-    if (!found)
-    {
-        if (current->state == TERMINATED)
-        {
-            printk("No task alive, entering infinite loop\n");
-            while (1)
-                ;
-        }
-        return; // Keep running the current task
-    }
+    if (next == current || next->state != READY)
+        return;
 
     if (current->state != TERMINATED)
-        current->state = READY; // Mark previous task as ready if still alive
+        current->state = READY;
 
-    current_task = next_task;
-    current = &tasks[current_task];
+    // Change active user L2
+    set_l1_entry(current->coarse_pt, 0); // Clear current entry
+    set_l1_entry(next->va_base, COARSE_ENTRY(next->coarse_pt, DOMAIN_USER));
 
-    printk("Switching to task: %u\n", current_task);
+    current = next;
+    current->state = RUNNING;
 
-    current->state = RUNNING; // Mark new task as running
+    printk("Switching to task %s\n", current->name);
 }

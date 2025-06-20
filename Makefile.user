@@ -1,0 +1,45 @@
+# Toolchain
+CC = arm-none-eabi-gcc
+LD = arm-none-eabi-gcc
+AR = arm-none-eabi-ar
+
+# Compiler and Linker Flags
+CFLAGS = -Wall -nostdlib -nostartfiles -ffreestanding -O0 -Iinclude -fPIC
+LDFLAGS = -T src/user/user.ld -nostdlib -nostartfiles -ffreestanding -pie -Lbuild
+LIBS = -l:libcommon_user.a -luser -lgcc
+
+# Directories
+SRC_DIR = src/user
+BUILD_DIR = build/user
+
+# Find sources
+C_SRCS := $(wildcard $(SRC_DIR)/*.c)
+S_SRCS := $(wildcard $(SRC_DIR)/*.s)
+
+# Convert to object paths
+OBJS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(C_SRCS)) \
+         $(patsubst $(SRC_DIR)/%.s,$(BUILD_DIR)/%.o,$(S_SRCS))
+
+# Final user image
+TARGET := $(BUILD_DIR)/user.elf
+LIBUSER := build/libuser.so
+LIBCOMMON := build/libcommon_user.a
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS) $(LIBUSER) $(LIBCOMMON)
+	@mkdir -p $(dir $@)
+	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD_DIR)
+
+.PHONY: all clean

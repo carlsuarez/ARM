@@ -1,5 +1,5 @@
 #include "kernel/shell/commands.h"
-#include "kernel/printk.h"
+#include "libc/kernel/printk.h"
 
 int8_t chdir(const char *path)
 {

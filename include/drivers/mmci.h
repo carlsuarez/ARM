@@ -2,6 +2,7 @@
 #define MMCI_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include "hw/pl181.h"
 
 #define SECTOR_SIZE 512

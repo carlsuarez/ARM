@@ -118,6 +118,8 @@ copy_from_task_stack:
 
 // Default dummy handlers
 undefined_handler: b .
+
+.extern svc_handler_c
 svc_handler:
     sub sp, sp, #68     // Make space for 17 registers
     stmia sp, {r0-r12, lr}    // Store r0-r12, lr onto the stack

@@ -1,8 +1,6 @@
 #ifndef SD_H
 #define SD_H
 
-#include <stdint.h>
-
 // Command indices
 #define GO_IDLE_STATE 0
 #define ALL_SEND_CID 2
